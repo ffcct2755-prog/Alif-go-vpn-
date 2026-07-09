@@ -2073,6 +2073,60 @@ fun AccountTab(
                         fontSize = 11.sp,
                         color = Color.LightGray
                     )
+                    
+                    val expiryTimestamp = currentUser?.premiumExpiryTimestamp ?: 0L
+                    var timeLeftText by remember(expiryTimestamp) { mutableStateOf("") }
+                    if (expiryTimestamp == Long.MAX_VALUE) {
+                        timeLeftText = getT("Lifetime Active Plan", "আজীবন মেয়াদের প্যাকেজ")
+                    } else if (expiryTimestamp > 0L) {
+                        LaunchedEffect(expiryTimestamp) {
+                            while (true) {
+                                val now = System.currentTimeMillis()
+                                val diff = expiryTimestamp - now
+                                if (diff <= 0) {
+                                    timeLeftText = getT("Subscription Expired", "প্যাকেজের মেয়াদ শেষ হয়েছে")
+                                    break
+                                } else {
+                                    val days = diff / (24 * 60 * 60 * 1000)
+                                    val hours = (diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000)
+                                    val minutes = (diff % (60 * 60 * 1000)) / (60 * 1000)
+                                    val seconds = (diff % (60 * 1000)) / 1000
+
+                                    timeLeftText = if (days > 0) {
+                                        getT(
+                                            "$days days, $hours hours, $minutes min, $seconds sec remaining",
+                                            "মেয়াদ বাকি: $days দিন $hours ঘণ্টা $minutes মিনিট $seconds সেকেন্ড"
+                                        )
+                                    } else if (hours > 0) {
+                                        getT(
+                                            "$hours hours, $minutes min, $seconds sec remaining",
+                                            "মেয়াদ বাকি: $hours ঘণ্টা $minutes মিনিট $seconds সেকেন্ড"
+                                        )
+                                    } else if (minutes > 0) {
+                                        getT(
+                                            "$minutes min, $seconds sec remaining",
+                                            "মেয়াদ বাকি: $minutes মিনিট $seconds সেকেন্ড"
+                                        )
+                                    } else {
+                                        getT(
+                                            "$seconds sec remaining",
+                                            "মেয়াদ বাকি: $seconds সেকেন্ড"
+                                        )
+                                    }
+                                }
+                                kotlinx.coroutines.delay(1000)
+                            }
+                        }
+                    }
+                    if (timeLeftText.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = timeLeftText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GoldenAmber
+                        )
+                    }
                 }
             }
         }
@@ -2285,6 +2339,60 @@ fun SubscriptionPlansTab(
                         color = RadiantEmerald,
                         fontWeight = FontWeight.Bold
                     )
+                    
+                    val expiryTimestamp = currentUser.premiumExpiryTimestamp
+                    var timeLeftText by remember(expiryTimestamp) { mutableStateOf("") }
+                    if (expiryTimestamp == Long.MAX_VALUE) {
+                        timeLeftText = getT("Lifetime Active Plan", "আজীবন মেয়াদের প্যাকেজ")
+                    } else if (expiryTimestamp > 0L) {
+                        LaunchedEffect(expiryTimestamp) {
+                            while (true) {
+                                val now = System.currentTimeMillis()
+                                val diff = expiryTimestamp - now
+                                if (diff <= 0) {
+                                    timeLeftText = getT("Subscription Expired", "প্যাকেজের মেয়াদ শেষ হয়েছে")
+                                    break
+                                } else {
+                                    val days = diff / (24 * 60 * 60 * 1000)
+                                    val hours = (diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000)
+                                    val minutes = (diff % (60 * 60 * 1000)) / (60 * 1000)
+                                    val seconds = (diff % (60 * 1000)) / 1000
+
+                                    timeLeftText = if (days > 0) {
+                                        getT(
+                                            "$days days, $hours hours, $minutes min, $seconds sec remaining",
+                                            "মেয়াদ বাকি: $days দিন $hours ঘণ্টা $minutes মিনিট $seconds সেকেন্ড"
+                                        )
+                                    } else if (hours > 0) {
+                                        getT(
+                                            "$hours hours, $minutes min, $seconds sec remaining",
+                                            "মেয়াদ বাকি: $hours ঘণ্টা $minutes মিনিট $seconds সেকেন্ড"
+                                        )
+                                    } else if (minutes > 0) {
+                                        getT(
+                                            "$minutes min, $seconds sec remaining",
+                                            "মেয়াদ বাকি: $minutes মিনিট $seconds সেকেন্ড"
+                                        )
+                                    } else {
+                                        getT(
+                                            "$seconds sec remaining",
+                                            "মেয়াদ বাকি: $seconds সেকেন্ড"
+                                        )
+                                    }
+                                }
+                                kotlinx.coroutines.delay(1000)
+                            }
+                        }
+                    }
+                    if (timeLeftText.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = timeLeftText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GoldenAmber
+                        )
+                    }
                 } else {
                     Text(
                         text = getT(

@@ -23,6 +23,7 @@ data class UserSession(
     val name: String,
     val isPremium: Boolean = false,
     val premiumExpiryDate: String = "", // e.g., "Pending" or "2026-10-15"
+    val premiumExpiryTimestamp: Long = 0L, // timestamp in ms, 0 means no active countdown or infinite
     val coinBalance: Int = 100, // 100 initial free coins
     val referralEarnings: Double = 0.0, // in USDT
     val referralCode: String,

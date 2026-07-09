@@ -123,6 +123,34 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
             }
         }
 
+        // Periodic Subscription Expiry Validation & Auto-downgrade back to Free Tier
+        viewModelScope.launch(Dispatchers.IO) {
+            while (true) {
+                try {
+                    val email = _currentUserEmail.value
+                    if (email.isNotEmpty()) {
+                        userDao.getUserByEmail(email)?.let { user ->
+                            if (user.isPremium && user.premiumExpiryTimestamp > 0L && user.premiumExpiryTimestamp != Long.MAX_VALUE) {
+                                if (System.currentTimeMillis() > user.premiumExpiryTimestamp) {
+                                    // Subscription has expired! Downgrade back to Free Tier
+                                    val downgraded = user.copy(
+                                        isPremium = false,
+                                        currentPlanName = "Free User",
+                                        premiumExpiryDate = "",
+                                        premiumExpiryTimestamp = 0L
+                                    )
+                                    userDao.insertUser(downgraded)
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                kotlinx.coroutines.delay(5000) // Check every 5 seconds for immediate update
+            }
+        }
+
         // Proactive self-healing database seed check (for cases where onCreate was not called)
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -680,14 +708,28 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private fun calculateExpiryInfo(durationDays: Int): Pair<String, Long> {
+        val now = System.currentTimeMillis()
+        if (durationDays >= 999) {
+            return Pair("Lifetime", Long.MAX_VALUE)
+        }
+        val durationMillis = durationDays * 24L * 60L * 60L * 1000L
+        val expiryTimestamp = now + durationMillis
+        val format = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+        val dateString = format.format(java.util.Date(expiryTimestamp))
+        return Pair(dateString, expiryTimestamp)
+    }
+
     fun redeemCoinsForPremium(plan: SubscriptionPlan) {
         val user = currentUser.value ?: return
         if (user.coinBalance >= plan.coinsRequired) {
             viewModelScope.launch(Dispatchers.IO) {
+                val (expiryStr, expiryTimestamp) = calculateExpiryInfo(plan.durationDays)
                 val updated = user.copy(
                     coinBalance = user.coinBalance - plan.coinsRequired,
                     isPremium = true,
-                    premiumExpiryDate = "Coins Purchase Plan",
+                    premiumExpiryDate = expiryStr,
+                    premiumExpiryTimestamp = expiryTimestamp,
                     currentPlanName = plan.name
                 )
                 userDao.insertUser(updated)
@@ -716,11 +758,12 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
 
             // 2. Instantly upgrade user to Premium
             userDao.getUserByEmail(email)?.let { user ->
-                val expiryString = "Google Billing Active - Auto Renews"
+                val (expiryStr, expiryTimestamp) = calculateExpiryInfo(plan.durationDays)
                 val updatedUser = user.copy(
                     isPremium = true,
                     currentPlanName = plan.name,
-                    premiumExpiryDate = expiryString
+                    premiumExpiryDate = expiryStr,
+                    premiumExpiryTimestamp = expiryTimestamp
                 )
                 userDao.insertUser(updatedUser)
 
@@ -923,10 +966,12 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
     fun adminUpgradeUser(email: String, days: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             userDao.getUserByEmail(email)?.let { user ->
+                val (expiryStr, expiryTimestamp) = calculateExpiryInfo(days)
                 val updated = user.copy(
                     isPremium = true,
                     currentPlanName = if (days >= 999) "Lifetime Premium" else "Admin Approved - $days Days",
-                    premiumExpiryDate = "Admin Grant Expires in $days days"
+                    premiumExpiryDate = expiryStr,
+                    premiumExpiryTimestamp = expiryTimestamp
                 )
                 userDao.insertUser(updated)
             }
@@ -965,11 +1010,12 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                 
                 // Grant Premium status to the User!
                 userDao.getUserByEmail(tx.userEmail)?.let { user ->
-                    val expiryString = "USDT Active - Admin Standard"
+                    val (expiryStr, expiryTimestamp) = calculateExpiryInfo(tx.planDurationDays)
                     val updatedUser = user.copy(
                         isPremium = true,
                         currentPlanName = tx.planName,
-                        premiumExpiryDate = expiryString
+                        premiumExpiryDate = expiryStr,
+                        premiumExpiryTimestamp = expiryTimestamp
                     )
                     userDao.insertUser(updatedUser)
 
