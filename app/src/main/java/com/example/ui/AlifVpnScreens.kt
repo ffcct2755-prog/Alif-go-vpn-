@@ -2111,6 +2111,217 @@ fun AccountTab(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        // My Services & Connected Devices Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.2f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Header
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Devices,
+                        contentDescription = "Services & Devices",
+                        tint = ElectricBlue,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = getT("My Services & Devices", "আমার সেবা ও ডিভাইস"),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Section 1: Active Services
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.CloudQueue,
+                        contentDescription = "Active Services",
+                        tint = RadiantEmerald,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = getT("Active Services", "সক্রিয় সেবাসমূহ"),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = RadiantEmerald
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Service Details
+                val isPremium = currentUser?.isPremium == true
+                val planName = currentUser?.currentPlanName ?: getT("Free User", "ফ্রি ইউজার")
+                val activeServicesList = if (isPremium) {
+                    listOf(
+                        getT("⭐ VIP Premium VPN Service", "⭐ ভিআইপি প্রিমিয়াম ভিপিএন সার্ভিস"),
+                        getT("🚀 High-Speed Premium Servers Access", "🚀 হাই-স্পিড প্রিমিয়াম সার্ভার অ্যাক্সেস"),
+                        getT("🔒 Multi-Protocol Selection", "🔒 মাল্টি-প্রোটোকল সিলেকশন"),
+                        getT("💬 24/7 VIP Chat Support", "💬 ২৪/৭ ভিআইপি লাইভ চ্যাট সাপোর্ট")
+                    )
+                } else {
+                    listOf(
+                        getT("🆓 Standard Free VPN Service", "🆓 স্ট্যান্ডার্ড ফ্রি ভিপিএন সার্ভিস"),
+                        getT("🌍 Standard Location Access", "🌍 স্ট্যান্ডার্ড লোকেশন অ্যাক্সেস")
+                    )
+                }
+
+                activeServicesList.forEach { service ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+                    ) {
+                        Text("•", color = Color.LightGray, fontSize = 12.sp, modifier = Modifier.padding(end = 6.dp))
+                        Text(text = service, color = Color.White, fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Section 2: Connected Devices
+                val currentDeviceSecId = android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "UNKNOWN_DEVICE"
+                val deviceList = currentUser?.activeDevicesList?.split(";")?.filter { it.isNotEmpty() } ?: emptyList()
+                val deviceLimit = currentUser?.deviceLimit ?: 3
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Phonelink,
+                            contentDescription = "Devices",
+                            tint = GoldenAmber,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = getT("Installed/Active Phones", "সংযুক্ত ফোনসমূহ"),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = GoldenAmber
+                        )
+                    }
+                    Text(
+                        text = "${deviceList.size} / $deviceLimit ${getT("Devices", "ডিভাইস")}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = if (deviceList.size >= deviceLimit) CrimsonRose else GoldenAmber
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+
+                if (deviceList.isEmpty()) {
+                    Text(
+                        text = getT("No devices connected yet. Start connecting to VPN!", "কোনো ডিভাইস এখনো যুক্ত নেই। ভিপিএন কানেক্ট করা শুরু করুন!"),
+                        fontSize = 11.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                } else {
+                    deviceList.forEachIndexed { index, devId ->
+                        val isThisPhone = devId == currentDeviceSecId
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isThisPhone) ElectricBlue.copy(alpha = 0.08f) else MaterialTheme.colorScheme.background
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isThisPhone) ElectricBlue.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.15f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = if (isThisPhone) Icons.Default.PhoneAndroid else Icons.Default.PhonelinkSetup,
+                                        contentDescription = "Phone",
+                                        tint = if (isThisPhone) ElectricBlue else Color.LightGray,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = if (isThisPhone) {
+                                                getT("This Phone (Active)", "এই ফোন (সক্রিয়)")
+                                            } else {
+                                                "${getT("Connected Phone", "সংযুক্ত ফোন")} #${index + 1}"
+                                            },
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = if (isThisPhone) ElectricBlue else Color.White
+                                        )
+                                        Text(
+                                            text = "ID: ${devId.take(12).uppercase()}",
+                                            fontSize = 10.sp,
+                                            color = Color.Gray,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                }
+
+                                // Remove device button
+                                IconButton(
+                                    onClick = { viewModel.removeMyDevice(devId) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Remove Device",
+                                        tint = CrimsonRose.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (deviceList.size > 1) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = { viewModel.resetMyDevices() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CrimsonRose.copy(alpha = 0.1f),
+                            contentColor = CrimsonRose
+                        ),
+                        border = BorderStroke(1.dp, CrimsonRose.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Reset", modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(getT("Reset / Logout All Other Devices", "সব ডিভাইস রিসেট / সাইন আউট করুন"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
         // Wallet & Redeem shortcut Card
         Card(
             modifier = Modifier.fillMaxWidth(),

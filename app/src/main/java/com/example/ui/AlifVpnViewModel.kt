@@ -1185,6 +1185,31 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun resetMyDevices() {
+        val email = _currentUserEmail.value
+        viewModelScope.launch(Dispatchers.IO) {
+            val user = userDao.getUserByEmail(email)
+            if (user != null) {
+                userDao.insertUser(user.copy(activeDevicesList = ""))
+            }
+        }
+    }
+
+    fun removeMyDevice(deviceIdToRemove: String) {
+        val email = _currentUserEmail.value
+        viewModelScope.launch(Dispatchers.IO) {
+            val user = userDao.getUserByEmail(email)
+            if (user != null) {
+                val devices = user.activeDevicesList.split(";").filter { it.isNotEmpty() }.toMutableList()
+                if (devices.contains(deviceIdToRemove)) {
+                    devices.remove(deviceIdToRemove)
+                    val updatedDevices = devices.joinToString(";")
+                    userDao.insertUser(user.copy(activeDevicesList = updatedDevices))
+                }
+            }
+        }
+    }
+
     fun adminUpdateServerDeviceLimit(serverId: Int, limit: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             val server = serverDao.getServerById(serverId)

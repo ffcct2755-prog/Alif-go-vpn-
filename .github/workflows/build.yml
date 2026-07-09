@@ -28,6 +28,9 @@ jobs:
         with:
           validate-wrappers: false
 
+      - name: Regenerate Gradle Wrapper
+        run: gradle wrapper --gradle-version 9.3.1
+
       - name: Decode Debug Keystore or Generate One
         run: |
           if [ -f debug.keystore.base64 ]; then
