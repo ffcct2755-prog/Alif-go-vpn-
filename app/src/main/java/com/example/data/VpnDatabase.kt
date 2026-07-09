@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
         SubscriptionPlan::class,
         ResellerPin::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 abstract class VpnDatabase : RoomDatabase() {
@@ -126,15 +126,15 @@ abstract class VpnDatabase : RoomDatabase() {
                 )
             )
 
-            // Seed Subscription Plans
+            // Seed Subscription Plans (Standard plans all have 1 device limit as per user request)
             val planDao = db.planDao()
             val plans = listOf(
                 SubscriptionPlan("weekly", "Weekly Plan", 7, 2.0, 0, 150, deviceLimit = 1),
-                SubscriptionPlan("monthly", "Monthly Premium", 30, 5.0, 15, 500, deviceLimit = 3),
-                SubscriptionPlan("3month", "3 Months Super saving", 90, 12.0, 20, 1200, deviceLimit = 5),
-                SubscriptionPlan("6month", "6 Months Ultimate", 180, 20.0, 25, 2000, deviceLimit = 8),
-                SubscriptionPlan("yearly", "Yearly Unlimited", 365, 30.0, 40, 3500, deviceLimit = 10),
-                SubscriptionPlan("lifetime", "Lifetime Freedom", 9999, 50.0, 50, 6000, deviceLimit = 15)
+                SubscriptionPlan("monthly", "Monthly Premium", 30, 5.0, 15, 500, deviceLimit = 1),
+                SubscriptionPlan("3month", "3 Months Super saving", 90, 12.0, 20, 1200, deviceLimit = 1),
+                SubscriptionPlan("6month", "6 Months Ultimate", 180, 20.0, 25, 2000, deviceLimit = 1),
+                SubscriptionPlan("yearly", "Yearly Unlimited", 365, 30.0, 40, 3500, deviceLimit = 1),
+                SubscriptionPlan("lifetime", "Lifetime Freedom", 9999, 50.0, 50, 6000, deviceLimit = 1)
             )
             for (plan in plans) {
                 planDao.insertPlan(plan)

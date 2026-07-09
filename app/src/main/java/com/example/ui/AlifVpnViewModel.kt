@@ -564,7 +564,7 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     email = trimmed,
                     name = name,
                     referralCode = refCode,
-                    deviceLimit = 3,
+                    deviceLimit = 1,
                     activeDevicesList = if (deviceId.isNotEmpty()) deviceId else ""
                 )
                 userDao.insertUser(user)
@@ -607,7 +607,7 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     referralCode = refCode,
                     invitedBy = inviteCode.trim().uppercase(),
                     coinBalance = 150, // Sign up gift
-                    deviceLimit = 3,
+                    deviceLimit = 1,
                     activeDevicesList = if (deviceId.isNotEmpty()) deviceId else ""
                 )
                 userDao.insertUser(user)
@@ -1123,7 +1123,7 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     // Retrieve device limit from the associated subscription plan
                     val plans = planDao.getAllPlansFlow().first()
                     val matchingPlan = plans.find { it.name.lowercase() == tx.planName.lowercase() || it.durationDays == tx.planDurationDays }
-                    val calculatedLimit = matchingPlan?.deviceLimit ?: 3
+                    val calculatedLimit = matchingPlan?.deviceLimit ?: 1
 
                     val updatedUser = user.copy(
                         isPremium = true,

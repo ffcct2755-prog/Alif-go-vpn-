@@ -2258,6 +2258,8 @@ fun SubscriptionPlansTab(
     var activationMessage by remember { mutableStateOf("") }
     var isActivationSuccess by remember { mutableStateOf<Boolean?>(null) }
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     
     val appConfigState by viewModel.appConfig.collectAsState()
     val config = appConfigState ?: AppConfig()
@@ -2662,6 +2664,91 @@ fun SubscriptionPlansTab(
                             Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(getT("Contact Admin to Start Reseller", "রিসেলার হতে অ্যাডমিনের সাথে যোগাযোগ করুন"), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // Wholesale Reseller Packages (With high device limits for VPN Sellers / Server Traders)
+                Text(
+                    text = getT("Wholesale Reseller Packages", "পাইকারি রিসেলার প্যাকেজসমূহ"),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                )
+
+                val resellerPackages = listOf(
+                    Triple("Reseller Starter Pack", "50 Devices", "$15 USD"),
+                    Triple("Reseller Silver Pack", "100 Devices", "$25 USD"),
+                    Triple("Reseller Gold Pack", "250 Devices", "$55 USD"),
+                    Triple("Reseller Enterprise VIP", "500 Devices", "$99 USD"),
+                    Triple("Server Broker Unlimited", "1000 Devices", "$180 USD")
+                )
+
+                resellerPackages.forEach { pack ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = DeepCosmicSurface),
+                        border = BorderStroke(1.dp, ElectricBlue.copy(0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = pack.first,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Devices,
+                                        contentDescription = null,
+                                        tint = GoldenAmber,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = getT("Limit: ${pack.second}", "সীমা: ${pack.second}"),
+                                        fontSize = 11.sp,
+                                        color = GoldenAmber,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = pack.third,
+                                    fontWeight = FontWeight.Bold,
+                                    color = RadiantEmerald,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Button(
+                                    onClick = {
+                                        val orderMsg = "Hi Admin, I want to purchase the ${pack.first} (${pack.second}) for my VPN/Server clients. Please send me payment details."
+                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(orderMsg))
+                                        android.widget.Toast.makeText(context, "Order template copied to clipboard!", android.widget.Toast.LENGTH_SHORT).show()
+                                        try {
+                                            uriHandler.openUri(config.telegramLink)
+                                        } catch (e: Exception) {
+                                            uriHandler.openUri("https://t.me/alifvpn_official")
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(26.dp)
+                                ) {
+                                    Text(getT("BUY PINs", "কিনুন"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
                 }
@@ -4507,9 +4594,9 @@ fun AdminResellerPinsManagement(
     val context = LocalContext.current
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     
-    var planName by remember { mutableStateOf("Monthly Premium") }
+    var planName by remember { mutableStateOf("Reseller Pro Pack") }
     var durationDays by remember { mutableStateOf("30") }
-    var deviceLimit by remember { mutableStateOf("3") }
+    var deviceLimit by remember { mutableStateOf("100") }
     var quantity by remember { mutableStateOf("5") }
 
     Column(

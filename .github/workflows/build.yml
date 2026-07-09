@@ -26,7 +26,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          disable-wrapper-validation: true
+          validate-wrappers: false
 
       - name: Decode Debug Keystore or Generate One
         run: |
