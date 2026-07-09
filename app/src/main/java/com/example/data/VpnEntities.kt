@@ -14,7 +14,9 @@ data class VpnServer(
     val latency: Int, // ping in ms
     val loadPercent: Int, // 0-100%
     val isEnabled: Boolean = true,
-    val protocol: String = "WireGuard" // WireGuard, OpenVPN, IKEv2
+    val protocol: String = "WireGuard", // WireGuard, OpenVPN, IKEv2
+    val maxConnectedDevices: Int = 5, // Maximum concurrent devices allowed to connect
+    val connectedDevicesList: String = "" // Semicolon-separated list of active devices/user emails connected
 )
 
 @Entity(tableName = "users")
@@ -32,7 +34,9 @@ data class UserSession(
     val currentPlanName: String = "Free User",
     val dataUsedUploadedInBytes: Long = 0,
     val dataUsedDownloadedInBytes: Long = 0,
-    val isGuest: Boolean = false
+    val isGuest: Boolean = false,
+    val deviceLimit: Int = 3, // Default limit of 3 devices
+    val activeDevicesList: String = "" // Semicolon-separated list of active device IDs (ANDROID_ID)
 )
 
 @Entity(tableName = "transactions")
@@ -73,11 +77,11 @@ data class AdmobConfig(
     val isAppOpenEnabled: Boolean = true,
     val rewardCoinsPerAd: Int = 15,
     val adFrequencyMinutes: Int = 2,
-    val appId: String = "ca-app-pub-3940256099942544~3347511713",
-    val bannerPlacementId: String = "ca-app-pub-3940256099942544/6300978111",
-    val nativePlacementId: String = "ca-app-pub-3940256099942544/2247696110",
-    val interstitialPlacementId: String = "ca-app-pub-3940256099942544/1033173712",
-    val rewardedPlacementId: String = "ca-app-pub-3940256099942544/5224354917"
+    val appId: String = "ca-app-pub-1131981412237081~8138260298",
+    val bannerPlacementId: String = "ca-app-pub-1131981412237081/5644757651",
+    val nativePlacementId: String = "ca-app-pub-1131981412237081/8083218739",
+    val interstitialPlacementId: String = "ca-app-pub-1131981412237081/5320525262",
+    val rewardedPlacementId: String = "ca-app-pub-1131981412237081/3495060863"
 )
 
 @Entity(tableName = "app_config")
@@ -145,5 +149,6 @@ data class SubscriptionPlan(
     val durationDays: Int,
     val priceUsdt: Double,
     val discountPercent: Int = 0,
-    val coinsRequired: Int = 500
+    val coinsRequired: Int = 500,
+    val deviceLimit: Int = 3 // Max devices allowed for this plan
 )

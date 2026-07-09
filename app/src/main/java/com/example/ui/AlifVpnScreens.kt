@@ -90,6 +90,13 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
     var billingOrderId by remember { mutableStateOf("") }
     var activeNotificationText by remember { mutableStateOf<Pair<String, String>?>(null) }
 
+    // Retrieve device unique ID (ANDROID_ID)
+    val context = LocalContext.current
+    val deviceId = remember {
+        android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "UNKNOWN_DEVICE"
+    }
+    val authErrorMsg by viewModel.authError.collectAsState()
+
     // Interstitial and Rewarded Ad status
     var simulatedAdProgress by remember { mutableFloatStateOf(0f) }
     var activeSimulatedAdByCoins by remember { mutableStateOf<Boolean?>(null) } // true: Video Ad, false: Interstitial connect Ad
@@ -249,6 +256,7 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                 Column {
                     // AdMob Banner ad support simulation
                     if (admob?.isBannerEnabled == true) {
+                        val activeBannerId = admob?.bannerPlacementId?.ifBlank { "ca-app-pub-1131981412237081/5644757651" } ?: "ca-app-pub-1131981412237081/5644757651"
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -257,7 +265,7 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "[AdMob Banner: ca-app-pub-3940256099942544/6300978111] -- " + getT("Sponsored safe connection", "স্পন্সরড নিরাপদ সংযোগ"),
+                                text = "[AdMob Banner: $activeBannerId] -- " + getT("Sponsored safe connection", "স্পন্সরড নিরাপদ সংযোগ"),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.White,
                                 fontSize = 10.sp
@@ -337,7 +345,7 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                                         simulatedAdProgress = i / 25f
                                     }
                                     showAdDialog = false
-                                    viewModel.toggleConnection()
+                                    viewModel.toggleConnection(deviceId = deviceId)
                                 }
                             }
                         )
@@ -431,6 +439,56 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
             )
         }
 
+        // Device Limit Exceeded Dialog alert
+        if (authErrorMsg == "DEVICE_LIMIT_EXCEEDED") {
+            AlertDialog(
+                onDismissRequest = { viewModel.authError.value = null },
+                icon = { Icon(Icons.Default.Devices, contentDescription = "Device Limit", tint = CrimsonRose) },
+                title = { Text(getT("Device Limit Exceeded!", "ডিভাইস ব্যবহারের সীমা অতিক্রম হয়েছে!")) },
+                text = {
+                    Text(
+                        getT(
+                            "You have reached the maximum allowed device limit for your active Premium plan. Please disconnect another device, contact Alif Go VPN Support, or request your admin to reset devices.",
+                            "আপনার প্রিমিয়াম সাবস্ক্রিপশনের সর্বোচ্চ ডিভাইস ব্যবহারের সীমা পূর্ণ হয়েছে। অনুগ্রহ করে অন্য ডিভাইস ডিসকানেক্ট করুন, অথবা আমাদের কাস্টমার সাপোর্টে যোগাযোগ করুন।"
+                        )
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.authError.value = null },
+                        colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
+                    ) {
+                        Text(getT("OK", "ঠিক আছে"))
+                    }
+                }
+            )
+        }
+
+        // Server Connection Limit Exceeded Dialog alert
+        if (authErrorMsg == "SERVER_LIMIT_EXCEEDED") {
+            AlertDialog(
+                onDismissRequest = { viewModel.authError.value = null },
+                icon = { Icon(Icons.Default.Dns, contentDescription = "Server Limit", tint = CrimsonRose) },
+                title = { Text(getT("Server Connection Full!", "সার্ভার সংযোগ পূর্ণ হয়েছে!")) },
+                text = {
+                    Text(
+                        getT(
+                            "This specific server has reached its maximum concurrent user limit set by the administrator. Please select another high-speed server, try again later, or contact support.",
+                            "এই সার্ভারের সর্বোচ্চ সংযোগ সীমা পূর্ণ হয়েছে। অনুগ্রহ করে অন্য কোনো হাই-স্পিড সার্ভার ব্যবহার করুন অথবা কিছু সময় পর চেষ্টা করুন।"
+                        )
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.authError.value = null },
+                        colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
+                    ) {
+                        Text(getT("OK", "ঠিক আছে"))
+                    }
+                }
+            )
+        }
+
         // Authentication & Sign up popup screen
         if (showAuthDialog) {
             Dialog(onDismissRequest = { showAuthDialog = false }) {
@@ -493,9 +551,9 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                         Button(
                             onClick = {
                                 if (isSignUpTab) {
-                                    viewModel.signUp(loginEmail, signUpName.ifEmpty { "User" }, signUpInviteCode)
+                                    viewModel.signUp(loginEmail, signUpName.ifEmpty { "User" }, signUpInviteCode, deviceId)
                                 } else {
-                                    viewModel.login(loginEmail, "Standard User")
+                                    viewModel.login(loginEmail, "Standard User", deviceId)
                                 }
                                 showAuthDialog = false
                             },
@@ -514,7 +572,7 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                         }
 
                         TextButton(onClick = {
-                            viewModel.loginGuest()
+                            viewModel.loginGuest(deviceId)
                             showAuthDialog = false
                         }) {
                             Text(getT("Skip & Use Default Account", "ডিফল্ট অ্যাকাউন্ট দিয়ে প্রবেশ"), color = RadiantEmerald)
@@ -1134,6 +1192,11 @@ fun ConnectDashboardTab(
     onTriggerAuth: () -> Unit,
     onTriggerInterstitialAdBlock: () -> Unit
 ) {
+    val context = LocalContext.current
+    val deviceId = remember {
+        android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "UNKNOWN_DEVICE"
+    }
+
     val downloadSpeed by viewModel.currentDownloadSpeedMbps.collectAsState()
     val uploadSpeed by viewModel.currentUploadSpeedMbps.collectAsState()
     val totalDl by viewModel.totalDataDownloaded.collectAsState()
@@ -1219,7 +1282,7 @@ fun ConnectDashboardTab(
                         if (connectionState == "DISCONNECTED") {
                             onTriggerInterstitialAdBlock()
                         } else {
-                            viewModel.toggleConnection(false)
+                            viewModel.toggleConnection(false, deviceId)
                         }
                     }
                     .testTag("power_button"),
@@ -1617,6 +1680,11 @@ fun ServerListTab(
 ) {
     // Dynamic Filter states (Free, Premium, Gaming, Streaming)
     var selectedCategoryFilter by remember { mutableStateOf("Free") }
+    
+    val context = LocalContext.current
+    val deviceId = remember {
+        android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "UNKNOWN_DEVICE"
+    }
 
     LaunchedEffect(Unit) {
         viewModel.autoSyncServersFromRemote()
@@ -1708,7 +1776,7 @@ fun ServerListTab(
                                         "Google Play Premium subscription is required to unlock access on premium servers."
                                     )
                                 } else {
-                                    viewModel.selectServer(server)
+                                    viewModel.selectServer(server, deviceId)
                                     onServerSelected()
                                 }
                             },
@@ -2337,6 +2405,22 @@ fun SubscriptionPlansTab(
                                 Column {
                                     Text(text = plan.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                                     Text(text = "Expires in ${plan.durationDays} days", fontSize = 11.sp, color = Color.Gray)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Devices,
+                                            contentDescription = null,
+                                            tint = ElectricBlue,
+                                            modifier = Modifier.size(11.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = getT("Device Limit: ${plan.deviceLimit} phones", "ডিভাইস সীমা: সর্বোচ্চ ${plan.deviceLimit} টি ফোন"),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.LightGray
+                                        )
+                                    }
                                 }
                                 Box(
                                     modifier = Modifier
@@ -2892,6 +2976,7 @@ fun AdminPanelTab(
             AdminSidebarItem(icon = Icons.Default.Dashboard, label = "Board", isSelected = adminActiveSection == "dashboard") { adminActiveSection = "dashboard" }
             AdminSidebarItem(icon = Icons.Default.Group, label = "Users", isSelected = adminActiveSection == "users") { adminActiveSection = "users" }
             AdminSidebarItem(icon = Icons.Default.Dns, label = "Servers", isSelected = adminActiveSection == "servers") { adminActiveSection = "servers" }
+            AdminSidebarItem(icon = Icons.Default.Devices, label = "Srv Limit", isSelected = adminActiveSection == "limits") { adminActiveSection = "limits" }
             AdminSidebarItem(icon = Icons.Default.AttachMoney, label = "TRX Pay", isSelected = adminActiveSection == "payments") { adminActiveSection = "payments" }
             AdminSidebarItem(icon = Icons.Default.Sms, label = "Tickets", isSelected = adminActiveSection == "tickets") { adminActiveSection = "tickets" }
             AdminSidebarItem(icon = Icons.Default.WorkspacePremium, label = "Plans", isSelected = adminActiveSection == "plans") { adminActiveSection = "plans" }
@@ -2911,6 +2996,7 @@ fun AdminPanelTab(
                 "dashboard" -> AdminDashboardOverview(users, servers, transactions, envEmail = "ffcct2755@gmail.com")
                 "users" -> AdminUserManagement(users, viewModel)
                 "servers" -> AdminServerManagement(servers, appConf, viewModel)
+                "limits" -> AdminServerLimitsManagement(servers, viewModel)
                 "payments" -> AdminPaymentVerification(transactions, viewModel)
                 "tickets" -> AdminTicketResolution(tickets, viewModel)
                 "plans" -> AdminPlansManagement(plans, viewModel)
@@ -3145,6 +3231,46 @@ fun AdminUserManagement(users: List<UserSession>, viewModel: AlifVpnViewModel) {
                             Text("Banned: ${user.isBanned}", fontSize = 11.sp, color = if (user.isBanned) CrimsonRose else Color.Gray)
                         }
 
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val activeDevicesCount = user.activeDevicesList.split(";").filter { it.isNotEmpty() }.size
+                            Text("Devices: $activeDevicesCount / ${user.deviceLimit}", fontSize = 11.sp, color = Color.LightGray)
+
+                            // Device Limit Increment / Decrement
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text("Limit:", fontSize = 10.sp, color = Color.Gray)
+                                IconButton(
+                                    onClick = { if (user.deviceLimit > 1) viewModel.adminUpdateUserDeviceLimit(user.email, user.deviceLimit - 1) },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(Icons.Default.Remove, contentDescription = "Decrease Limit", tint = Color.LightGray, modifier = Modifier.size(14.dp))
+                                }
+                                Text("${user.deviceLimit}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                IconButton(
+                                    onClick = { viewModel.adminUpdateUserDeviceLimit(user.email, user.deviceLimit + 1) },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "Increase Limit", tint = Color.LightGray, modifier = Modifier.size(14.dp))
+                                }
+                            }
+
+                            // Reset device associations
+                            TextButton(
+                                onClick = { viewModel.adminResetUserDevices(user.email) },
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier.height(24.dp)
+                            ) {
+                                Text("Reset Devices", fontSize = 10.sp, color = ElectricBlue)
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(10.dp))
 
                         // Controls
@@ -3190,6 +3316,217 @@ fun AdminUserManagement(users: List<UserSession>, viewModel: AlifVpnViewModel) {
                                 contentPadding = PaddingValues(0.dp)
                             ) {
                                 Text("+200 C", fontSize = 10.sp, color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminServerLimitsManagement(servers: List<VpnServer>, viewModel: AlifVpnViewModel) {
+    var searchQuery by remember { mutableStateOf("") }
+    
+    val filteredServers = remember(servers, searchQuery) {
+        servers.filter {
+            it.countryName.contains(searchQuery, ignoreCase = true) ||
+            it.city.contains(searchQuery, ignoreCase = true) ||
+            it.ipAddress.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        // Header card
+        Card(
+            colors = CardDefaults.cardColors(containerColor = DeepCosmicSurface),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Server Connection Limits (সার্ভার ডিভাইস লিমিট)",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = ElectricBlue,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Configure the maximum allowed concurrent phone connections for each VPN server. Reset active connections instantly to clear user associations.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.LightGray
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Search Bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Search by country, city or IP...", color = Color.Gray, fontSize = 13.sp) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.Gray) },
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                focusedBorderColor = ElectricBlue,
+                unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f),
+                focusedContainerColor = DeepCosmicSurface,
+                unfocusedContainerColor = DeepCosmicSurface
+            ),
+            shape = RoundedCornerShape(10.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            if (filteredServers.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("No servers found matching search query.", color = Color.Gray, fontSize = 13.sp)
+                    }
+                }
+            } else {
+                items(filteredServers) { server ->
+                    val activeCount = remember(server.connectedDevicesList) {
+                        server.connectedDevicesList.split(";").filter { it.isNotEmpty() }.size
+                    }
+
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = DeepCosmicSurface.copy(alpha = 0.85f)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Country code emoji
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .background(DeepCosmicDark, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val codeEmoji = when (server.countryCode) {
+                                    "US" -> "🇺🇸"
+                                    "SG" -> "🇸🇬"
+                                    "BD" -> "🇧🇩"
+                                    "JP" -> "🇯🇵"
+                                    "GB" -> "🇬🇧"
+                                    "DE" -> "🇩🇪"
+                                    "KR" -> "🇰🇷"
+                                    "IN" -> "🇮🇳"
+                                    else -> "🌐"
+                                }
+                                Text(codeEmoji, fontSize = 18.sp)
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            // Server Info column
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "${server.countryName} - ${server.city}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "IP: ${server.ipAddress} • Protocol: ${server.protocol}",
+                                    fontSize = 11.sp,
+                                    color = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                // Active user count status badge
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            if (activeCount >= server.maxConnectedDevices) CrimsonRose.copy(0.2f) else RadiantEmerald.copy(0.15f),
+                                            RoundedCornerShape(4.dp)
+                                        )
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "Active Phones: $activeCount / ${server.maxConnectedDevices} connected",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (activeCount >= server.maxConnectedDevices) CrimsonRose else RadiantEmerald
+                                    )
+                                }
+                            }
+
+                            // Controls Row
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                // Limit Incrementor / Decrementor
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text("Limit:", fontSize = 11.sp, color = Color.Gray)
+                                    IconButton(
+                                        onClick = { if (server.maxConnectedDevices > 1) viewModel.adminUpdateServerDeviceLimit(server.id, server.maxConnectedDevices - 1) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Remove,
+                                            contentDescription = "Decrease Max Devices Limit",
+                                            tint = Color.LightGray,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "${server.maxConnectedDevices}",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    IconButton(
+                                        onClick = { viewModel.adminUpdateServerDeviceLimit(server.id, server.maxConnectedDevices + 1) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Add,
+                                            contentDescription = "Increase Max Devices Limit",
+                                            tint = Color.LightGray,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+
+                                // Reset Connections Button
+                                OutlinedButton(
+                                    onClick = { viewModel.adminResetServerDevices(server.id) },
+                                    modifier = Modifier.height(26.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    border = BorderStroke(1.dp, CrimsonRose.copy(alpha = 0.6f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CrimsonRose)
+                                ) {
+                                    Icon(
+                                        Icons.Default.PowerSettingsNew,
+                                        contentDescription = "Reset connections",
+                                        modifier = Modifier.size(11.dp),
+                                        tint = CrimsonRose
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Reset Active", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
@@ -4018,6 +4355,7 @@ fun AdminPlansManagement(
     var planPrice by remember { mutableStateOf("5.0") }
     var planDiscount by remember { mutableStateOf("0") }
     var planCoins by remember { mutableStateOf("500") }
+    var planDeviceLimit by remember { mutableStateOf("3") }
     
     var isEditing by remember { mutableStateOf(false) }
 
@@ -4119,6 +4457,16 @@ fun AdminPlansManagement(
                     )
                 }
 
+                // Device Connection Limit Input Field
+                OutlinedTextField(
+                    value = planDeviceLimit,
+                    onValueChange = { planDeviceLimit = it },
+                    label = { Text("Device Limit (সর্বোচ্চ কত ফোনে সংযোগ দেয়া যাবে)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -4133,6 +4481,7 @@ fun AdminPlansManagement(
                             val price = planPrice.toDoubleOrNull() ?: 5.0
                             val discount = planDiscount.toIntOrNull() ?: 0
                             val coins = planCoins.toIntOrNull() ?: 500
+                            val limit = planDeviceLimit.toIntOrNull() ?: 3
 
                             val newPlan = SubscriptionPlan(
                                 id = planId.trim().lowercase(),
@@ -4140,7 +4489,8 @@ fun AdminPlansManagement(
                                 durationDays = duration,
                                 priceUsdt = price,
                                 discountPercent = discount,
-                                coinsRequired = coins
+                                coinsRequired = coins,
+                                deviceLimit = limit
                             )
 
                             viewModel.adminAddPlan(newPlan)
@@ -4153,6 +4503,7 @@ fun AdminPlansManagement(
                             planPrice = "5.0"
                             planDiscount = "0"
                             planCoins = "500"
+                            planDeviceLimit = "3"
                             isEditing = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = if (isEditing) GoldenAmber else RadiantEmerald),
@@ -4170,6 +4521,7 @@ fun AdminPlansManagement(
                                 planPrice = "5.0"
                                 planDiscount = "0"
                                 planCoins = "500"
+                                planDeviceLimit = "3"
                                 isEditing = false
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
@@ -4249,6 +4601,7 @@ fun AdminPlansManagement(
                                         planPrice = plan.priceUsdt.toString()
                                         planDiscount = plan.discountPercent.toString()
                                         planCoins = plan.coinsRequired.toString()
+                                        planDeviceLimit = plan.deviceLimit.toString()
                                     },
                                     modifier = Modifier.size(36.dp)
                                 ) {
@@ -4360,6 +4713,25 @@ fun AdminPlansManagement(
                                     )
                                 }
                             }
+
+                            Column {
+                                Text("Devices Limit", fontSize = 10.sp, color = Color.Gray)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Devices,
+                                        contentDescription = "",
+                                        tint = ElectricBlue,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text(
+                                        text = "${plan.deviceLimit}",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.White
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -4377,11 +4749,11 @@ fun AdminAdmobManagement(
     var rewardCoinsText by remember { mutableStateOf(admob?.rewardCoinsPerAd?.toString() ?: "15") }
 
     // Google AdMob Placement IDs states
-    var admobAppIdText by remember { mutableStateOf(admob?.appId ?: "ca-app-pub-3940256099942544~3347511713") }
-    var admobBannerIdText by remember { mutableStateOf(admob?.bannerPlacementId ?: "ca-app-pub-3940256099942544/6300978111") }
-    var admobInterstitialIdText by remember { mutableStateOf(admob?.interstitialPlacementId ?: "ca-app-pub-3940256099942544/1033173712") }
-    var admobRewardedIdText by remember { mutableStateOf(admob?.rewardedPlacementId ?: "ca-app-pub-3940256099942544/5224354917") }
-    var admobNativeIdText by remember { mutableStateOf(admob?.nativePlacementId ?: "ca-app-pub-3940256099942544/2247696110") }
+    var admobAppIdText by remember { mutableStateOf(admob?.appId ?: "ca-app-pub-1131981412237081~8138260298") }
+    var admobBannerIdText by remember { mutableStateOf(admob?.bannerPlacementId ?: "ca-app-pub-1131981412237081/5644757651") }
+    var admobInterstitialIdText by remember { mutableStateOf(admob?.interstitialPlacementId ?: "ca-app-pub-1131981412237081/5320525262") }
+    var admobRewardedIdText by remember { mutableStateOf(admob?.rewardedPlacementId ?: "ca-app-pub-1131981412237081/3495060863") }
+    var admobNativeIdText by remember { mutableStateOf(admob?.nativePlacementId ?: "ca-app-pub-1131981412237081/8083218739") }
 
     Column(
         modifier = Modifier

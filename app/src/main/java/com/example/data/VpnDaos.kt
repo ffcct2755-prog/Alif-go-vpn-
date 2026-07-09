@@ -21,6 +21,9 @@ interface VpnServerDao {
     @Update
     suspend fun updateServer(server: VpnServer)
 
+    @Query("SELECT * FROM servers WHERE id = :id LIMIT 1")
+    suspend fun getServerById(id: Int): VpnServer?
+
     @Query("DELETE FROM servers WHERE id = :id")
     suspend fun deleteServerById(id: Int)
 

@@ -59,6 +59,9 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
     private val _currentUserEmail = MutableStateFlow("ffcct2755@gmail.com") // seed default user originally
     val currentUserEmail: StateFlow<String> = _currentUserEmail.asStateFlow()
 
+    // Authentication and device limit error messages
+    val authError = MutableStateFlow<String?>(null)
+
     val currentUser = _currentUserEmail.flatMapLatest { email ->
         userDao.getUserByEmailFlow(email)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -545,7 +548,7 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // AUTH ACTIONS
-    fun login(email: String, name: String = "User") {
+    fun login(email: String, name: String = "User", deviceId: String = "") {
         viewModelScope.launch(Dispatchers.IO) {
             val trimmed = email.trim().lowercase()
             if (trimmed.isEmpty()) return@launch
@@ -556,17 +559,38 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                 user = UserSession(
                     email = trimmed,
                     name = name,
-                    referralCode = refCode
+                    referralCode = refCode,
+                    deviceLimit = 3,
+                    activeDevicesList = if (deviceId.isNotEmpty()) deviceId else ""
                 )
                 userDao.insertUser(user)
+            } else {
+                // Check if user has reached device limits
+                val devices = user.activeDevicesList.split(";").filter { it.isNotEmpty() }.toMutableList()
+                if (deviceId.isNotEmpty()) {
+                    if (!devices.contains(deviceId)) {
+                        if (devices.size >= user.deviceLimit) {
+                            authError.value = "DEVICE_LIMIT_EXCEEDED"
+                            return@launch
+                        } else {
+                            devices.add(deviceId)
+                            val updatedDevices = devices.joinToString(";")
+                            user = user.copy(activeDevicesList = updatedDevices)
+                            userDao.insertUser(user)
+                        }
+                    }
+                }
             }
-            if (!user.isBanned) {
+            if (user.isBanned) {
+                authError.value = "BANNED"
+            } else {
+                authError.value = null
                 _currentUserEmail.value = trimmed
             }
         }
     }
 
-    fun signUp(email: String, name: String, inviteCode: String) {
+    fun signUp(email: String, name: String, inviteCode: String, deviceId: String = "") {
         viewModelScope.launch(Dispatchers.IO) {
             val trimmedEmail = email.trim().lowercase()
             if (trimmedEmail.isEmpty()) return@launch
@@ -578,7 +602,9 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     name = name,
                     referralCode = refCode,
                     invitedBy = inviteCode.trim().uppercase(),
-                    coinBalance = 150 // Sign up gift
+                    coinBalance = 150, // Sign up gift
+                    deviceLimit = 3,
+                    activeDevicesList = if (deviceId.isNotEmpty()) deviceId else ""
                 )
                 userDao.insertUser(user)
 
@@ -593,48 +619,111 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                         userDao.insertUser(updatedInviter)
                     }
                 }
+            } else {
+                // Check device limits
+                val devices = user.activeDevicesList.split(";").filter { it.isNotEmpty() }.toMutableList()
+                if (deviceId.isNotEmpty()) {
+                    if (!devices.contains(deviceId)) {
+                        if (devices.size >= user.deviceLimit) {
+                            authError.value = "DEVICE_LIMIT_EXCEEDED"
+                            return@launch
+                        } else {
+                            devices.add(deviceId)
+                            val updatedDevices = devices.joinToString(";")
+                            user = user.copy(activeDevicesList = updatedDevices)
+                            userDao.insertUser(user)
+                        }
+                    }
+                }
             }
-            if (!user.isBanned) {
+            if (user.isBanned) {
+                authError.value = "BANNED"
+            } else {
+                authError.value = null
                 _currentUserEmail.value = trimmedEmail
             }
         }
     }
 
-    fun loginGuest() {
-        login("guest@alifvpn.com", "Guest User")
+    fun loginGuest(deviceId: String = "") {
+        login("guest@alifvpn.com", "Guest User", deviceId)
     }
 
     fun logout() {
+        authError.value = null
         _currentUserEmail.value = "guest@alifvpn.com"
     }
 
-    fun selectServer(server: VpnServer) {
+    fun selectServer(server: VpnServer, deviceId: String = "") {
         _selectedServer.value = server
         // Always connect automatically when a server is selected / clicked
-        toggleConnection(true)
+        toggleConnection(true, deviceId)
     }
 
     // VPN START DETAILS
-    fun toggleConnection(forceState: Boolean? = null) {
+    fun toggleConnection(forceState: Boolean? = null, deviceId: String = "") {
         val nextConnect = forceState ?: (_connectionState.value == "DISCONNECTED")
         if (nextConnect) {
-            // Start Connection
             _connectionState.value = "CONNECTING"
-            viewModelScope.launch {
-                delay(1200) // connection Handshake simulation
-                
-                // Set Up OS Native VPN dialog request trigger!
-                val intent = VpnService.prepare(context)
-                if (intent == null) {
-                    // Consent already validated, proceed with Native Service tunnel!
-                    val serviceIntent = Intent(context, AlifVpnService::class.java).apply {
-                        action = "CONNECT"
+            viewModelScope.launch(Dispatchers.IO) {
+                val email = _currentUserEmail.value
+                val user = userDao.getUserByEmail(email)
+                if (user != null) {
+                    val devices = user.activeDevicesList.split(";").filter { it.isNotEmpty() }.toMutableList()
+                    if (deviceId.isNotEmpty()) {
+                        if (!devices.contains(deviceId)) {
+                            if (devices.size >= user.deviceLimit) {
+                                withContext(Dispatchers.Main) {
+                                    _connectionState.value = "DISCONNECTED"
+                                    authError.value = "DEVICE_LIMIT_EXCEEDED"
+                                }
+                                return@launch
+                            } else {
+                                devices.add(deviceId)
+                                val updatedDevices = devices.joinToString(";")
+                                userDao.insertUser(user.copy(activeDevicesList = updatedDevices))
+                            }
+                        }
                     }
-                    context.startService(serviceIntent)
+                }
+
+                // Server-level Limit Check & Register device ID on server list
+                val server = _selectedServer.value
+                if (server != null) {
+                    val srvDevices = server.connectedDevicesList.split(";").filter { it.isNotEmpty() }.toMutableList()
+                    if (deviceId.isNotEmpty()) {
+                        if (!srvDevices.contains(deviceId)) {
+                            if (srvDevices.size >= server.maxConnectedDevices) {
+                                withContext(Dispatchers.Main) {
+                                    _connectionState.value = "DISCONNECTED"
+                                    authError.value = "SERVER_LIMIT_EXCEEDED"
+                                }
+                                return@launch
+                            } else {
+                                srvDevices.add(deviceId)
+                                val updatedSrvDevices = srvDevices.joinToString(";")
+                                serverDao.updateServer(server.copy(connectedDevicesList = updatedSrvDevices))
+                            }
+                        }
+                    }
                 }
                 
-                _connectionState.value = "CONNECTED"
-                startStatsTimer()
+                withContext(Dispatchers.Main) {
+                    delay(1200) // connection Handshake simulation
+                    
+                    // Set Up OS Native VPN dialog request trigger!
+                    val intent = VpnService.prepare(context)
+                    if (intent == null) {
+                        // Consent already validated, proceed with Native Service tunnel!
+                        val serviceIntent = Intent(context, AlifVpnService::class.java).apply {
+                            action = "CONNECT"
+                        }
+                        context.startService(serviceIntent)
+                    }
+                    
+                    _connectionState.value = "CONNECTED"
+                    startStatsTimer()
+                }
             }
         } else {
             // Disconnect Server
@@ -644,6 +733,19 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                 action = "DISCONNECT"
             }
             context.startService(serviceIntent)
+
+            // Remove device from active server connected list
+            viewModelScope.launch(Dispatchers.IO) {
+                val server = _selectedServer.value
+                if (server != null && deviceId.isNotEmpty()) {
+                    val srvDevices = server.connectedDevicesList.split(";").filter { it.isNotEmpty() }.toMutableList()
+                    if (srvDevices.contains(deviceId)) {
+                        srvDevices.remove(deviceId)
+                        val updated = srvDevices.joinToString(";")
+                        serverDao.updateServer(server.copy(connectedDevicesList = updated))
+                    }
+                }
+            }
         }
     }
 
@@ -730,7 +832,8 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     isPremium = true,
                     premiumExpiryDate = expiryStr,
                     premiumExpiryTimestamp = expiryTimestamp,
-                    currentPlanName = plan.name
+                    currentPlanName = plan.name,
+                    deviceLimit = plan.deviceLimit
                 )
                 userDao.insertUser(updated)
             }
@@ -763,7 +866,8 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     isPremium = true,
                     currentPlanName = plan.name,
                     premiumExpiryDate = expiryStr,
-                    premiumExpiryTimestamp = expiryTimestamp
+                    premiumExpiryTimestamp = expiryTimestamp,
+                    deviceLimit = plan.deviceLimit
                 )
                 userDao.insertUser(updatedUser)
 
@@ -1011,11 +1115,18 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                 // Grant Premium status to the User!
                 userDao.getUserByEmail(tx.userEmail)?.let { user ->
                     val (expiryStr, expiryTimestamp) = calculateExpiryInfo(tx.planDurationDays)
+                    
+                    // Retrieve device limit from the associated subscription plan
+                    val plans = planDao.getAllPlansFlow().first()
+                    val matchingPlan = plans.find { it.name.lowercase() == tx.planName.lowercase() || it.durationDays == tx.planDurationDays }
+                    val calculatedLimit = matchingPlan?.deviceLimit ?: 3
+
                     val updatedUser = user.copy(
                         isPremium = true,
                         currentPlanName = tx.planName,
                         premiumExpiryDate = expiryStr,
-                        premiumExpiryTimestamp = expiryTimestamp
+                        premiumExpiryTimestamp = expiryTimestamp,
+                        deviceLimit = calculatedLimit
                     )
                     userDao.insertUser(updatedUser)
 
@@ -1043,6 +1154,42 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
     fun adminUpdateAdConfiguration(config: AdmobConfig) {
         viewModelScope.launch(Dispatchers.IO) {
             admobDao.insertConfig(config)
+        }
+    }
+
+    fun adminUpdateUserDeviceLimit(email: String, limit: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val user = userDao.getUserByEmail(email)
+            if (user != null) {
+                userDao.insertUser(user.copy(deviceLimit = limit))
+            }
+        }
+    }
+
+    fun adminResetUserDevices(email: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val user = userDao.getUserByEmail(email)
+            if (user != null) {
+                userDao.insertUser(user.copy(activeDevicesList = ""))
+            }
+        }
+    }
+
+    fun adminUpdateServerDeviceLimit(serverId: Int, limit: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val server = serverDao.getServerById(serverId)
+            if (server != null) {
+                serverDao.insertServer(server.copy(maxConnectedDevices = limit))
+            }
+        }
+    }
+
+    fun adminResetServerDevices(serverId: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val server = serverDao.getServerById(serverId)
+            if (server != null) {
+                serverDao.insertServer(server.copy(connectedDevicesList = ""))
+            }
         }
     }
 
