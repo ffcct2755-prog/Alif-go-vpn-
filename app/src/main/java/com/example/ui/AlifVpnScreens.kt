@@ -2618,56 +2618,7 @@ fun SubscriptionPlansTab(
                     }
                 }
 
-                // Reseller Business Options Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    border = BorderStroke(1.dp, GoldenAmber.copy(0.3f))
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.BusinessCenter,
-                                contentDescription = null,
-                                tint = GoldenAmber,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = getT("Reseller Panel", "রিসেলার প্যানেল"),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = GoldenAmber
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = getT(
-                                "Become an official ALIF VPN Reseller! You can buy premium activation PINs in bulk at wholesale discount prices and sell them locally to your clients for cash or mobile money (bKash/Nagad/Recharge).",
-                                "আলিফ ভিপিএন-এর অফিসিয়াল রিসেলার হয়ে যান! পাইকারি ডিসকাউন্ট রেটে প্রিমিয়াম পিন কোড কিনুন এবং তা আপনার লোকাল এরিয়ার কাস্টমারদের কাছে নগদ, বিকাশ বা মোবাইল রিচার্জের বিনিময়ে রিটেইল মূল্যে বিক্রি করে ব্যাপক লাভ করুন।"
-                            ),
-                            fontSize = 11.sp,
-                            color = Color.White,
-                            lineHeight = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = {
-                                try {
-                                    uriHandler.openUri(config.telegramLink)
-                                } catch (e: Exception) {
-                                    uriHandler.openUri("https://t.me/alifvpn_official")
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(getT("Contact Admin to Start Reseller", "রিসেলার হতে অ্যাডমিনের সাথে যোগাযোগ করুন"), fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
+
 
                 // Wholesale Reseller Packages (With high device limits for VPN Sellers / Server Traders)
                 Text(
