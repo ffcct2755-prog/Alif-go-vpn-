@@ -1,0 +1,102 @@
+[
+  {
+    "countryName": "Bangladesh",
+    "countryCode": "BD",
+    "city": "Dhaka",
+    "ipAddress": "103.112.113.1",
+    "type": "Free",
+    "latency": 12,
+    "loadPercent": 45,
+    "protocol": "IKEv2"
+  },
+  {
+    "countryName": "United States",
+    "countryCode": "US",
+    "city": "New York",
+    "ipAddress": "104.244.42.1",
+    "type": "Free",
+    "latency": 45,
+    "loadPercent": 32,
+    "protocol": "WireGuard"
+  },
+  {
+    "countryName": "Singapore",
+    "countryCode": "SG",
+    "city": "Jurong",
+    "ipAddress": "128.199.112.5",
+    "type": "Free",
+    "latency": 21,
+    "loadPercent": 15,
+    "protocol": "OpenVPN"
+  },
+  {
+    "countryName": "Japan",
+    "countryCode": "JP",
+    "city": "Tokyo",
+    "ipAddress": "210.140.10.3",
+    "type": "Premium",
+    "latency": 75,
+    "loadPercent": 19,
+    "protocol": "WireGuard"
+  },
+  {
+    "countryName": "United Kingdom",
+    "countryCode": "GB",
+    "city": "London",
+    "ipAddress": "195.154.122.9",
+    "type": "Premium",
+    "latency": 92,
+    "loadPercent": 25,
+    "protocol": "OpenVPN"
+  },
+  {
+    "countryName": "Germany",
+    "countryCode": "DE",
+    "city": "Frankfurt",
+    "ipAddress": "46.165.230.12",
+    "type": "Premium",
+    "latency": 88,
+    "loadPercent": 41,
+    "protocol": "WireGuard"
+  },
+  {
+    "countryName": "South Korea (Seoul)",
+    "countryCode": "KR",
+    "city": "Seoul",
+    "ipAddress": "182.162.24.8",
+    "type": "Gaming",
+    "latency": 15,
+    "loadPercent": 48,
+    "protocol": "WireGuard"
+  },
+  {
+    "countryName": "USA (Gaming Pro)",
+    "countryCode": "US",
+    "city": "Chicago",
+    "ipAddress": "45.33.2.14",
+    "type": "Gaming",
+    "latency": 38,
+    "loadPercent": 30,
+    "protocol": "WireGuard"
+  },
+  {
+    "countryName": "Netflix US Mirror",
+    "countryCode": "US",
+    "city": "Los Angeles",
+    "ipAddress": "23.244.33.66",
+    "type": "Streaming",
+    "latency": 55,
+    "loadPercent": 64,
+    "protocol": "OpenVPN"
+  },
+  {
+    "countryName": "Hotstar India Mirror",
+    "countryCode": "IN",
+    "city": "Mumbai",
+    "ipAddress": "115.112.2.1",
+    "type": "Streaming",
+    "latency": 28,
+    "loadPercent": 70,
+    "protocol": "WireGuard"
+  }
+]
