@@ -1898,9 +1898,27 @@ fun RewardsTab(
                 }
             }
         }
+    }
+}
 
-        Spacer(modifier = Modifier.height(12.dp))
+@Composable
+fun AccountTab(
+    viewModel: AlifVpnViewModel,
+    currentUser: UserSession?,
+    getT: (String, String) -> String,
+    onTriggerAuth: () -> Unit,
+    onGoToRedeem: () -> Unit
+) {
+    val context = LocalContext.current
+    val config by viewModel.appConfig.collectAsState()
 
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         // Referral affiliate earnings dashboard
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -1915,81 +1933,10 @@ fun RewardsTab(
                         Text(getT("Share your code to earn dynamic rewards", "বন্ধুদের আমন্ত্রণ জানিয়ে আয় করুন"), fontSize = 11.sp, color = Color.Gray)
                     }
                 }
-                Spacer(modifier = Modifier.height(14.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.background)
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(getT("Your Referral Code", "অ্যাফিলিয়েট কোড"), fontSize = 11.sp, color = Color.Gray)
-                        Text(
-                            text = currentUser?.referralCode ?: "ALIFNULL",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = ElectricBlue,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                    Button(
-                        onClick = {},
-                        colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue.copy(0.2f), contentColor = ElectricBlue)
-                    ) {
-                        Text(getT("Copy Code", "কপি কোড"))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
-                        .padding(10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(getT("USD Direct Commission Earnings:", "সরাসরি ডলার কমিশন:") , fontSize = 12.sp)
-                    Text("$${currentUser?.referralEarnings ?: 0.0} USD", fontWeight = FontWeight.Bold, color = RadiantEmerald)
-                }
             }
         }
-    }
-}
 
-@Composable
-fun AccountTab(
-    viewModel: AlifVpnViewModel,
-    currentUser: UserSession?,
-    getT: (String, String) -> String,
-    onTriggerAuth: () -> Unit,
-    onGoToRedeem: () -> Unit
-) {
-    val context = LocalContext.current
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Tab Title
-        Text(
-            text = getT("ALIF VPN ACCOUNT PROFILE", "আলিফ ভিপিএন অ্যাকাউন্ট প্রোফাইল"),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = RadiantEmerald
-        )
-        Text(
-            text = getT("Manage your account settings, active plan status, and wallet.", "আপনার অ্যাকাউন্ট সেটিংস, প্যাকেজ স্ট্যাটাস এবং ওয়ালেট পরিচালনা করুন।"),
-            fontSize = 11.sp,
-            color = Color.Gray,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Profile Avatar & Details Card
         Card(
@@ -2075,56 +2022,10 @@ fun AccountTab(
                     )
                     
                     val expiryTimestamp = currentUser?.premiumExpiryTimestamp ?: 0L
-                    var timeLeftText by remember(expiryTimestamp) { mutableStateOf("") }
-                    if (expiryTimestamp == Long.MAX_VALUE) {
-                        timeLeftText = getT("Lifetime Active Plan", "আজীবন মেয়াদের প্যাকেজ")
-                    } else if (expiryTimestamp > 0L) {
-                        LaunchedEffect(expiryTimestamp) {
-                            while (true) {
-                                val now = System.currentTimeMillis()
-                                val diff = expiryTimestamp - now
-                                if (diff <= 0) {
-                                    timeLeftText = getT("Subscription Expired", "প্যাকেজের মেয়াদ শেষ হয়েছে")
-                                    break
-                                } else {
-                                    val days = diff / (24 * 60 * 60 * 1000)
-                                    val hours = (diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000)
-                                    val minutes = (diff % (60 * 60 * 1000)) / (60 * 1000)
-                                    val seconds = (diff % (60 * 1000)) / 1000
-
-                                    timeLeftText = if (days > 0) {
-                                        getT(
-                                            "$days days, $hours hours, $minutes min, $seconds sec remaining",
-                                            "মেয়াদ বাকি: $days দিন $hours ঘণ্টা $minutes মিনিট $seconds সেকেন্ড"
-                                        )
-                                    } else if (hours > 0) {
-                                        getT(
-                                            "$hours hours, $minutes min, $seconds sec remaining",
-                                            "মেয়াদ বাকি: $hours ঘণ্টা $minutes মিনিট $seconds সেকেন্ড"
-                                        )
-                                    } else if (minutes > 0) {
-                                        getT(
-                                            "$minutes min, $seconds sec remaining",
-                                            "মেয়াদ বাকি: $minutes মিনিট $seconds সেকেন্ড"
-                                        )
-                                    } else {
-                                        getT(
-                                            "$seconds sec remaining",
-                                            "মেয়াদ বাকি: $seconds সেকেন্ড"
-                                        )
-                                    }
-                                }
-                                kotlinx.coroutines.delay(1000)
-                            }
-                        }
-                    }
-                    if (timeLeftText.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = timeLeftText,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GoldenAmber
+                    if (expiryTimestamp > 0L) {
+                        SubscriptionCountdownClock(
+                            expiryTimestamp = expiryTimestamp,
+                            getT = getT
                         )
                     }
                 }
@@ -2341,56 +2242,10 @@ fun SubscriptionPlansTab(
                     )
                     
                     val expiryTimestamp = currentUser.premiumExpiryTimestamp
-                    var timeLeftText by remember(expiryTimestamp) { mutableStateOf("") }
-                    if (expiryTimestamp == Long.MAX_VALUE) {
-                        timeLeftText = getT("Lifetime Active Plan", "আজীবন মেয়াদের প্যাকেজ")
-                    } else if (expiryTimestamp > 0L) {
-                        LaunchedEffect(expiryTimestamp) {
-                            while (true) {
-                                val now = System.currentTimeMillis()
-                                val diff = expiryTimestamp - now
-                                if (diff <= 0) {
-                                    timeLeftText = getT("Subscription Expired", "প্যাকেজের মেয়াদ শেষ হয়েছে")
-                                    break
-                                } else {
-                                    val days = diff / (24 * 60 * 60 * 1000)
-                                    val hours = (diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000)
-                                    val minutes = (diff % (60 * 60 * 1000)) / (60 * 1000)
-                                    val seconds = (diff % (60 * 1000)) / 1000
-
-                                    timeLeftText = if (days > 0) {
-                                        getT(
-                                            "$days days, $hours hours, $minutes min, $seconds sec remaining",
-                                            "মেয়াদ বাকি: $days দিন $hours ঘণ্টা $minutes মিনিট $seconds সেকেন্ড"
-                                        )
-                                    } else if (hours > 0) {
-                                        getT(
-                                            "$hours hours, $minutes min, $seconds sec remaining",
-                                            "মেয়াদ বাকি: $hours ঘণ্টা $minutes মিনিট $seconds সেকেন্ড"
-                                        )
-                                    } else if (minutes > 0) {
-                                        getT(
-                                            "$minutes min, $seconds sec remaining",
-                                            "মেয়াদ বাকি: $minutes মিনিট $seconds সেকেন্ড"
-                                        )
-                                    } else {
-                                        getT(
-                                            "$seconds sec remaining",
-                                            "মেয়াদ বাকি: $seconds সেকেন্ড"
-                                        )
-                                    }
-                                }
-                                kotlinx.coroutines.delay(1000)
-                            }
-                        }
-                    }
-                    if (timeLeftText.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = timeLeftText,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GoldenAmber
+                    if (expiryTimestamp > 0L) {
+                        SubscriptionCountdownClock(
+                            expiryTimestamp = expiryTimestamp,
+                            getT = getT
                         )
                     }
                 } else {
@@ -4922,5 +4777,151 @@ fun AdminPlayBillingManagement(
         }
     }
 }
+
+@Composable
+fun SubscriptionCountdownClock(
+    expiryTimestamp: Long,
+    getT: (String, String) -> String
+) {
+    var days by remember(expiryTimestamp) { mutableStateOf(0L) }
+    var hours by remember(expiryTimestamp) { mutableStateOf(0L) }
+    var minutes by remember(expiryTimestamp) { mutableStateOf(0L) }
+    var seconds by remember(expiryTimestamp) { mutableStateOf(0L) }
+    var isExpired by remember(expiryTimestamp) { mutableStateOf(false) }
+
+    if (expiryTimestamp == Long.MAX_VALUE) {
+        Box(
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .background(Color(0xFF0F0F0F), shape = RoundedCornerShape(10.dp))
+                .border(width = 2.dp, color = GoldenAmber, shape = RoundedCornerShape(10.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "L I F E T I M E",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = GoldenAmber
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = getT("Unlimited Access Activated", "আজীবন মেয়াদের প্যাকেজ সচল"),
+                    fontSize = 11.sp,
+                    color = Color.LightGray,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+        return
+    }
+
+    LaunchedEffect(expiryTimestamp) {
+        while (true) {
+            val now = System.currentTimeMillis()
+            val diff = expiryTimestamp - now
+            if (diff <= 0) {
+                isExpired = true
+                break
+            } else {
+                days = diff / (24 * 60 * 60 * 1000)
+                hours = (diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000)
+                minutes = (diff % (60 * 60 * 1000)) / (60 * 1000)
+                seconds = (diff % (60 * 1000)) / 1000
+            }
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+
+    if (isExpired) {
+        Box(
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .background(Color(0xFF2C0F0F), shape = RoundedCornerShape(10.dp))
+                .border(width = 2.dp, color = Color.Red, shape = RoundedCornerShape(10.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text(
+                text = getT("Subscription Expired", "প্যাকেজের মেয়াদ শেষ"),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Red
+            )
+        }
+    } else {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = getT("REMAINING TIME", "মেয়াদ বাকি"),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.LightGray,
+                letterSpacing = 2.sp
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .background(Color(0xFF0F0F0F), shape = RoundedCornerShape(12.dp))
+                    .border(width = 2.5.dp, color = GoldenAmber, shape = RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                ClockSegment(value = days, label = getT("Days", "দিন"))
+                ClockDivider()
+                ClockSegment(value = hours, label = getT("Hours", "ঘণ্টা"))
+                ClockDivider()
+                ClockSegment(value = minutes, label = getT("Mins", "মিনিট"))
+                ClockDivider()
+                ClockSegment(value = seconds, label = getT("Secs", "সেকেন্ড"))
+            }
+        }
+    }
+}
+
+@Composable
+fun ClockSegment(value: Long, label: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(horizontal = 4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .background(Color(0xFF1F1F1F), shape = RoundedCornerShape(6.dp))
+                .border(width = 1.dp, color = Color(0xFF333333), shape = RoundedCornerShape(6.dp))
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = String.format("%02d", value),
+                fontFamily = FontFamily.Monospace,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = GoldenAmber
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.Gray
+        )
+    }
+}
+
+@Composable
+fun ClockDivider() {
+    Text(
+        text = ":",
+        fontSize = 20.sp,
+        fontWeight = FontWeight.Bold,
+        color = GoldenAmber,
+        modifier = Modifier.padding(bottom = 12.dp)
+    )
+}
+
 
 
