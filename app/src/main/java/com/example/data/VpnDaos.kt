@@ -129,3 +129,18 @@ interface SubscriptionPlanDao {
     @Query("DELETE FROM subscription_plans WHERE id = :id")
     suspend fun deletePlanById(id: String)
 }
+
+@Dao
+interface ResellerPinDao {
+    @Query("SELECT * FROM reseller_pins ORDER BY generatedAt DESC")
+    fun getAllPinsFlow(): Flow<List<ResellerPin>>
+
+    @Query("SELECT * FROM reseller_pins WHERE pinCode = :code LIMIT 1")
+    suspend fun getPinByCode(code: String): ResellerPin?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPin(pin: ResellerPin)
+
+    @Query("DELETE FROM reseller_pins WHERE pinCode = :code")
+    suspend fun deletePinByCode(code: String)
+}

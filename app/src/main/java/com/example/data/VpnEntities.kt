@@ -152,3 +152,16 @@ data class SubscriptionPlan(
     val coinsRequired: Int = 500,
     val deviceLimit: Int = 3 // Max devices allowed for this plan
 )
+
+@Entity(tableName = "reseller_pins")
+data class ResellerPin(
+    @PrimaryKey val pinCode: String,
+    val planName: String, // e.g. "Weekly Plan"
+    val durationDays: Int,
+    val deviceLimit: Int,
+    val isRedeemed: Boolean = false,
+    val redeemedByUserEmail: String = "",
+    val redeemedAt: Long = 0L,
+    val generatedBy: String = "Admin", // e.g., "Admin" or reseller's email
+    val generatedAt: Long = System.currentTimeMillis()
+)

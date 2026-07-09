@@ -2254,6 +2254,10 @@ fun SubscriptionPlansTab(
     onBuyGoogleBilling: (SubscriptionPlan) -> Unit
 ) {
     var promoFilterTypeSelected by remember { mutableStateOf("purch") } // purch: buy plans, tx: history log
+    var pinInput by remember { mutableStateOf("") }
+    var activationMessage by remember { mutableStateOf("") }
+    var isActivationSuccess by remember { mutableStateOf<Boolean?>(null) }
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
     
     val appConfigState by viewModel.appConfig.collectAsState()
     val config = appConfigState ?: AppConfig()
@@ -2379,7 +2383,7 @@ fun SubscriptionPlansTab(
                 ),
                 shape = RoundedCornerShape(0.dp)
             ) {
-                Text(getT("Receipt Ledger", "পেমেন্ট রেকর্ড"), fontSize = 12.sp)
+                Text(getT("Reseller Option", "রিসেলার অপশন"), fontSize = 12.sp)
             }
         }
 
@@ -2516,26 +2520,176 @@ fun SubscriptionPlansTab(
                 }
             }
         } else {
-            // Receipt Ledger history listings
-            if (transactions.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
+            // Reseller Options and PIN Activation Screen
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Voucher PIN Activation Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = DeepCosmicSurface),
+                    border = BorderStroke(1.dp, ElectricBlue.copy(0.4f))
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.ReceiptLong, contentDescription = "None", modifier = Modifier.size(48.dp), tint = Color.LightGray)
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.VpnKey,
+                                contentDescription = null,
+                                tint = ElectricBlue,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = getT("Activate Voucher PIN", "ভাউচার পিন অ্যাক্টিভেট করুন"),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                         Spacer(modifier = Modifier.height(10.dp))
-                        Text(getT("No transaction records found.", "কোন পেমেন্ট রেকর্ড খুঁজে পাওয়া যায়নি।"), color = Color.Gray)
+                        Text(
+                            text = getT(
+                                "Enter the premium voucher activation PIN code received from your reseller.",
+                                "রিসেলারের কাছ থেকে কেনা প্রিমিয়াম ভাউচার অ্যাক্টিভেশন পিন কোডটি নিচে দিন।"
+                            ),
+                            fontSize = 11.sp,
+                            color = Color.LightGray
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = pinInput,
+                            onValueChange = { pinInput = it },
+                            placeholder = { Text("e.g. ALIF-WEEKLY-777", color = Color.Gray, fontSize = 13.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.LightGray,
+                                focusedBorderColor = ElectricBlue,
+                                unfocusedBorderColor = Color.Gray
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                if (pinInput.isNotBlank()) {
+                                    viewModel.redeemActivationPin(pinInput) { success, msg ->
+                                        isActivationSuccess = success
+                                        activationMessage = msg
+                                        if (success) {
+                                            pinInput = ""
+                                        }
+                                    }
+                                } else {
+                                    isActivationSuccess = false
+                                    activationMessage = "Please enter a PIN code first."
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = RadiantEmerald)
+                        ) {
+                            Text(getT("ACTIVATE PIN CODE", "পিন কোড অ্যাক্টিভেট করুন"), fontWeight = FontWeight.Bold)
+                        }
+                        
+                        if (activationMessage.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Surface(
+                                color = if (isActivationSuccess == true) RadiantEmerald.copy(0.15f) else CrimsonRose.copy(0.15f),
+                                border = BorderStroke(1.dp, if (isActivationSuccess == true) RadiantEmerald else CrimsonRose),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = activationMessage,
+                                    color = if (isActivationSuccess == true) RadiantEmerald else CrimsonRose,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(10.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f).testTag("tx_history"),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+
+                // Reseller Business Options Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    border = BorderStroke(1.dp, GoldenAmber.copy(0.3f))
                 ) {
-                    items(transactions) { tx ->
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.BusinessCenter,
+                                contentDescription = null,
+                                tint = GoldenAmber,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = getT("Reseller Panel", "রিসেলার প্যানেল"),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = GoldenAmber
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = getT(
+                                "Become an official ALIF VPN Reseller! You can buy premium activation PINs in bulk at wholesale discount prices and sell them locally to your clients for cash or mobile money (bKash/Nagad/Recharge).",
+                                "আলিফ ভিপিএন-এর অফিসিয়াল রিসেলার হয়ে যান! পাইকারি ডিসকাউন্ট রেটে প্রিমিয়াম পিন কোড কিনুন এবং তা আপনার লোকাল এরিয়ার কাস্টমারদের কাছে নগদ, বিকাশ বা মোবাইল রিচার্জের বিনিময়ে রিটেইল মূল্যে বিক্রি করে ব্যাপক লাভ করুন।"
+                            ),
+                            fontSize = 11.sp,
+                            color = Color.White,
+                            lineHeight = 16.sp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                try {
+                                    uriHandler.openUri(config.telegramLink)
+                                } catch (e: Exception) {
+                                    uriHandler.openUri("https://t.me/alifvpn_official")
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(getT("Contact Admin to Start Reseller", "রিসেলার হতে অ্যাডমিনের সাথে যোগাযোগ করুন"), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // Ledger history listings (Wholesaler Payments / General Logs)
+                Text(
+                    text = getT("Wholesaler Payments & Receipts", "পাইকারি পেমেন্ট এবং পূর্বের রেকর্ড"),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                )
+
+                if (transactions.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.ReceiptLong, contentDescription = "None", modifier = Modifier.size(36.dp), tint = Color.LightGray)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(getT("No transaction records found.", "কোন পেমেন্ট রেকর্ড খুঁজে পাওয়া যায়নি।"), color = Color.Gray, fontSize = 12.sp)
+                        }
+                    }
+                } else {
+                    transactions.forEach { tx ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -2546,8 +2700,8 @@ fun SubscriptionPlansTab(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Column {
-                                        Text(text = tx.planName, fontWeight = FontWeight.Bold)
-                                        Text(text = "Chain: ${tx.network}", fontSize = 11.sp, color = Color.Gray)
+                                        Text(text = tx.planName, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text(text = "Chain: ${tx.network}", fontSize = 10.sp, color = Color.Gray)
                                     }
                                     Box(
                                         modifier = Modifier
@@ -2569,14 +2723,14 @@ fun SubscriptionPlansTab(
                                                 "Rejected" -> CrimsonRose
                                                 else -> GoldenAmber
                                             },
-                                            fontSize = 11.sp
+                                            fontSize = 10.sp
                                         )
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     text = "Tx Hash: ${tx.txHash}",
-                                    fontSize = 10.sp,
+                                    fontSize = 9.sp,
                                     fontFamily = FontFamily.Monospace,
                                     color = Color.Gray
                                 )
@@ -2587,13 +2741,14 @@ fun SubscriptionPlansTab(
                                 ) {
                                     Text(
                                         text = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(tx.timestamp)),
-                                        fontSize = 10.sp,
+                                        fontSize = 9.sp,
                                         color = Color.LightGray
                                     )
                                     Text(
                                         text = "$${tx.amount} USD",
                                         fontWeight = FontWeight.Bold,
-                                        color = RadiantEmerald
+                                        color = RadiantEmerald,
+                                        fontSize = 12.sp
                                     )
                                 }
                             }
@@ -2980,6 +3135,7 @@ fun AdminPanelTab(
             AdminSidebarItem(icon = Icons.Default.AttachMoney, label = "TRX Pay", isSelected = adminActiveSection == "payments") { adminActiveSection = "payments" }
             AdminSidebarItem(icon = Icons.Default.Sms, label = "Tickets", isSelected = adminActiveSection == "tickets") { adminActiveSection = "tickets" }
             AdminSidebarItem(icon = Icons.Default.WorkspacePremium, label = "Plans", isSelected = adminActiveSection == "plans") { adminActiveSection = "plans" }
+            AdminSidebarItem(icon = Icons.Default.VpnKey, label = "Pins", isSelected = adminActiveSection == "pins") { adminActiveSection = "pins" }
             AdminSidebarItem(icon = Icons.Default.OndemandVideo, label = "AdMob", isSelected = adminActiveSection == "admob") { adminActiveSection = "admob" }
             AdminSidebarItem(icon = Icons.Default.CreditCard, label = "Billing", isSelected = adminActiveSection == "billing") { adminActiveSection = "billing" }
             AdminSidebarItem(icon = Icons.Default.SettingsApplications, label = "Configs", isSelected = adminActiveSection == "configs") { adminActiveSection = "configs" }
@@ -3000,6 +3156,7 @@ fun AdminPanelTab(
                 "payments" -> AdminPaymentVerification(transactions, viewModel)
                 "tickets" -> AdminTicketResolution(tickets, viewModel)
                 "plans" -> AdminPlansManagement(plans, viewModel)
+                "pins" -> AdminResellerPinsManagement(viewModel)
                 "admob" -> AdminAdmobManagement(admob, viewModel)
                 "billing" -> AdminPlayBillingManagement(appConf, viewModel)
                 "configs" -> AdminConfigPanel(admob, appConf, plans, viewModel)
@@ -4336,6 +4493,247 @@ fun AdminConfigPanel(
                     Icon(Icons.Default.CloudUpload, contentDescription = "")
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Save & Sync Custom API Now")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminResellerPinsManagement(
+    viewModel: AlifVpnViewModel
+) {
+    val pins by viewModel.allResellerPins.collectAsState(emptyList())
+    val context = LocalContext.current
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    
+    var planName by remember { mutableStateOf("Monthly Premium") }
+    var durationDays by remember { mutableStateOf("30") }
+    var deviceLimit by remember { mutableStateOf("3") }
+    var quantity by remember { mutableStateOf("5") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Reseller Voucher PIN Generator",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Generate New Wholesale PINs",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = GoldenAmber
+                )
+
+                OutlinedTextField(
+                    value = planName,
+                    onValueChange = { planName = it },
+                    label = { Text("Plan / Package Name", color = Color.Gray) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.LightGray,
+                        focusedBorderColor = ElectricBlue,
+                        unfocusedBorderColor = Color.Gray
+                    )
+                )
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = durationDays,
+                        onValueChange = { durationDays = it },
+                        label = { Text("Days Duration", color = Color.Gray) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.LightGray,
+                            focusedBorderColor = ElectricBlue,
+                            unfocusedBorderColor = Color.Gray
+                        )
+                    )
+                    OutlinedTextField(
+                        value = deviceLimit,
+                        onValueChange = { deviceLimit = it },
+                        label = { Text("Device Limit", color = Color.Gray) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.LightGray,
+                            focusedBorderColor = ElectricBlue,
+                            unfocusedBorderColor = Color.Gray
+                        )
+                    )
+                }
+
+                OutlinedTextField(
+                    value = quantity,
+                    onValueChange = { quantity = it },
+                    label = { Text("Quantity to Generate", color = Color.Gray) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.LightGray,
+                        focusedBorderColor = ElectricBlue,
+                        unfocusedBorderColor = Color.Gray
+                    )
+                )
+
+                Button(
+                    onClick = {
+                        val dDays = durationDays.toIntOrNull() ?: 30
+                        val dLimit = deviceLimit.toIntOrNull() ?: 3
+                        val qty = quantity.toIntOrNull() ?: 5
+                        viewModel.adminGenerateResellerPins(planName, dDays, dLimit, qty)
+                        android.widget.Toast.makeText(context, "Successfully generated $qty wholesale voucher PINs!", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = RadiantEmerald)
+                ) {
+                    Text("GENERATE WHOLESALE PINs", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Text(
+            text = "Active Voucher PIN Codes (${pins.size})",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        if (pins.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No reseller PIN codes generated yet.", color = Color.Gray)
+            }
+        } else {
+            pins.forEach { pin ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (pin.isRedeemed) DeepCosmicSurface.copy(alpha = 0.5f) else DeepCosmicSurface
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (pin.isRedeemed) Color.Gray.copy(alpha = 0.4f) else RadiantEmerald.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = pin.pinCode,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 15.sp,
+                                    color = if (pin.isRedeemed) Color.Gray else Color.White
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                IconButton(
+                                    onClick = {
+                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(pin.pinCode))
+                                        android.widget.Toast.makeText(context, "Copied: ${pin.pinCode}", android.widget.Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Copy",
+                                        tint = ElectricBlue,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    viewModel.adminDeletePin(pin.pinCode)
+                                    android.widget.Toast.makeText(context, "Deleted PIN ${pin.pinCode}", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = CrimsonRose,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Package: ${pin.planName} (${pin.durationDays} Days)",
+                                fontSize = 11.sp,
+                                color = Color.LightGray
+                            )
+                            Text(
+                                text = "Limit: ${pin.deviceLimit} Devices",
+                                fontSize = 11.sp,
+                                color = GoldenAmber,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        if (pin.isRedeemed) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Redeemed by: ${pin.redeemedByUserEmail}",
+                                fontSize = 10.sp,
+                                color = RadiantEmerald,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "At: " + SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(pin.redeemedAt)),
+                                fontSize = 10.sp,
+                                color = Color.Gray
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(RadiantEmerald, RoundedCornerShape(3.dp))
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = "Unused / Active", fontSize = 10.sp, color = RadiantEmerald)
+                            }
+                        }
+                    }
                 }
             }
         }

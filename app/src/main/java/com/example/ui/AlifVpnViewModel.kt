@@ -32,6 +32,7 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
     private val configDao = db.configDao()
     private val logDao = db.logDao()
     private val planDao = db.planDao()
+    private val resellerPinDao = db.resellerPinDao()
 
     // Application Preferences / States
     val allServers = serverDao.getAllServersFlow()
@@ -53,6 +54,9 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppConfig())
 
     val allPlans = planDao.getAllPlansFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allResellerPins = resellerPinDao.getAllPinsFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Currently logged-in active user
@@ -1542,6 +1546,81 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     onResult(false, e.localizedMessage ?: "Network error during Custom API Sync")
                 }
             }
+        }
+    }
+
+    fun redeemActivationPin(code: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cleanCode = code.trim().uppercase()
+            val pin = resellerPinDao.getPinByCode(cleanCode)
+            if (pin == null) {
+                withContext(Dispatchers.Main) {
+                    onResult(false, "Invalid PIN code. Please check and try again.")
+                }
+                return@launch
+            }
+            if (pin.isRedeemed) {
+                withContext(Dispatchers.Main) {
+                    onResult(false, "This PIN code has already been used.")
+                }
+                return@launch
+            }
+
+            // Valid pin! Apply premium status to current user.
+            val currentEmail = _currentUserEmail.value
+            val user = userDao.getUserByEmail(currentEmail)
+            if (user == null) {
+                withContext(Dispatchers.Main) {
+                    onResult(false, "User session not found.")
+                }
+                return@launch
+            }
+
+            val (expiryStr, expiryTimestamp) = calculateExpiryInfo(pin.durationDays)
+            val updatedUser = user.copy(
+                isPremium = true,
+                currentPlanName = pin.planName,
+                premiumExpiryDate = expiryStr,
+                premiumExpiryTimestamp = expiryTimestamp,
+                deviceLimit = pin.deviceLimit
+            )
+            userDao.insertUser(updatedUser)
+
+            // Mark pin as redeemed
+            val updatedPin = pin.copy(
+                isRedeemed = true,
+                redeemedByUserEmail = currentEmail,
+                redeemedAt = System.currentTimeMillis()
+            )
+            resellerPinDao.insertPin(updatedPin)
+
+            withContext(Dispatchers.Main) {
+                onResult(true, "Successfully activated ${pin.planName}! Device limit is now ${pin.deviceLimit} phones.")
+            }
+        }
+    }
+
+    fun adminGenerateResellerPins(planName: String, durationDays: Int, deviceLimit: Int, quantity: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val allowedChars = ('A'..'Z') + ('0'..'9')
+            repeat(quantity) {
+                val code = "ALIF-" + (1..8)
+                    .map { allowedChars.random() }
+                    .joinToString("")
+                val pin = ResellerPin(
+                    pinCode = code,
+                    planName = planName,
+                    durationDays = durationDays,
+                    deviceLimit = deviceLimit
+                )
+                resellerPinDao.insertPin(pin)
+            }
+        }
+    }
+
+    fun adminDeletePin(pinCode: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            resellerPinDao.deletePinByCode(pinCode)
         }
     }
 }

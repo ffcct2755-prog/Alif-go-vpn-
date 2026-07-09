@@ -18,9 +18,10 @@ import kotlinx.coroutines.launch
         AdmobConfig::class,
         AppConfig::class,
         ConnectionLog::class,
-        SubscriptionPlan::class
+        SubscriptionPlan::class,
+        ResellerPin::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class VpnDatabase : RoomDatabase() {
@@ -33,6 +34,7 @@ abstract class VpnDatabase : RoomDatabase() {
     abstract fun configDao(): AppConfigDao
     abstract fun logDao(): ConnectionLogDao
     abstract fun planDao(): SubscriptionPlanDao
+    abstract fun resellerPinDao(): ResellerPinDao
 
     companion object {
         @Volatile
@@ -170,6 +172,17 @@ abstract class VpnDatabase : RoomDatabase() {
                     isGuest = false
                 )
             )
+
+            // Seed some default reseller voucher activation PINs
+            val pinDao = db.resellerPinDao()
+            val seedPins = listOf(
+                ResellerPin("ALIF-WEEKLY-777", "Weekly Plan", 7, 1),
+                ResellerPin("ALIF-MONTHLY-888", "Monthly Premium", 30, 3),
+                ResellerPin("ALIF-YEARLY-999", "Yearly Unlimited", 365, 10)
+            )
+            for (pin in seedPins) {
+                pinDao.insertPin(pin)
+            }
         }
     }
 }
