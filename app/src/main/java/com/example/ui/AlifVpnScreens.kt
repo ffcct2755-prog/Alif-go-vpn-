@@ -1945,7 +1945,9 @@ fun AccountTab(
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Profile Avatar icon with modern outline
@@ -1971,12 +1973,16 @@ fun AccountTab(
                     text = currentUser?.name ?: getT("Guest User Mode", "গেস্ট ইউজার মোড"),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Text(
                     text = currentUser?.email ?: "guest@alifvpn.com",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.LightGray
+                    color = Color.LightGray,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -2018,14 +2024,17 @@ fun AccountTab(
                     Text(
                         text = "${getT("Expiry Date", "মেয়াদ শেষ হবে")}: ${currentUser?.premiumExpiryDate ?: ""}",
                         fontSize = 11.sp,
-                        color = Color.LightGray
+                        color = Color.LightGray,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     
                     val expiryTimestamp = currentUser?.premiumExpiryTimestamp ?: 0L
                     if (expiryTimestamp > 0L) {
                         SubscriptionCountdownClock(
                             expiryTimestamp = expiryTimestamp,
-                            getT = getT
+                            getT = getT,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
                         )
                     }
                 }
@@ -2196,7 +2205,9 @@ fun SubscriptionPlansTab(
             text = getT("ALIF ACTIVE SUBSCRIPTION", "আলিফ সক্রিয় সাবস্ক্রিপশন"),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = ElectricBlue
+            color = ElectricBlue,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -2205,8 +2216,17 @@ fun SubscriptionPlansTab(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Icon(
                         imageVector = if (currentUser?.isPremium == true) Icons.Default.WorkspacePremium else Icons.Default.StarOutline,
                         contentDescription = "Subscription Plan Status",
@@ -2214,7 +2234,7 @@ fun SubscriptionPlansTab(
                         modifier = Modifier.size(40.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = getT("Current Active Plan", "সক্রিয় প্যাকেজ"),
                             style = MaterialTheme.typography.bodySmall,
@@ -2232,20 +2252,23 @@ fun SubscriptionPlansTab(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 if (currentUser?.isPremium == true) {
                     Text(
                         text = "${getT("Expiry/Status", "মেয়াদ/স্ট্যাটাস")}: ${currentUser.premiumExpiryDate}",
                         fontSize = 11.sp,
                         color = RadiantEmerald,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     
                     val expiryTimestamp = currentUser.premiumExpiryTimestamp
                     if (expiryTimestamp > 0L) {
                         SubscriptionCountdownClock(
                             expiryTimestamp = expiryTimestamp,
-                            getT = getT
+                            getT = getT,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
                         )
                     }
                 } else {
@@ -2256,7 +2279,9 @@ fun SubscriptionPlansTab(
                         ),
                         fontSize = 11.sp,
                         color = Color.LightGray,
-                        lineHeight = 15.sp
+                        lineHeight = 15.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -4781,7 +4806,8 @@ fun AdminPlayBillingManagement(
 @Composable
 fun SubscriptionCountdownClock(
     expiryTimestamp: Long,
-    getT: (String, String) -> String
+    getT: (String, String) -> String,
+    modifier: Modifier = Modifier
 ) {
     var days by remember(expiryTimestamp) { mutableStateOf(0L) }
     var hours by remember(expiryTimestamp) { mutableStateOf(0L) }
@@ -4791,11 +4817,12 @@ fun SubscriptionCountdownClock(
 
     if (expiryTimestamp == Long.MAX_VALUE) {
         Box(
-            modifier = Modifier
+            modifier = modifier
                 .padding(vertical = 8.dp)
                 .background(Color(0xFF0F0F0F), shape = RoundedCornerShape(10.dp))
                 .border(width = 2.dp, color = GoldenAmber, shape = RoundedCornerShape(10.dp))
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -4836,11 +4863,12 @@ fun SubscriptionCountdownClock(
 
     if (isExpired) {
         Box(
-            modifier = Modifier
+            modifier = modifier
                 .padding(vertical = 8.dp)
                 .background(Color(0xFF2C0F0F), shape = RoundedCornerShape(10.dp))
                 .border(width = 2.dp, color = Color.Red, shape = RoundedCornerShape(10.dp))
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center
         ) {
             Text(
                 text = getT("Subscription Expired", "প্যাকেজের মেয়াদ শেষ"),
@@ -4851,7 +4879,7 @@ fun SubscriptionCountdownClock(
         }
     } else {
         Column(
-            modifier = Modifier.padding(vertical = 8.dp),
+            modifier = modifier.padding(vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
