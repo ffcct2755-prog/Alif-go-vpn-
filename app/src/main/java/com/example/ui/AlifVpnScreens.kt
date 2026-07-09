@@ -2760,7 +2760,7 @@ fun SubscriptionPlansTab(
                                 val hasPlayBilling = config.isPlayBillingEnabled
                                 val hasCoinRedemption = config.isCoinRedemptionEnabled
 
-                                if (!config.isPlayBillingEnabled && !config.isManualPaymentEnabled && !hasCoinRedemption) {
+                                if (!hasPlayBilling && !hasCoinRedemption) {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -2780,7 +2780,7 @@ fun SubscriptionPlansTab(
                                         // Conversion with Coins button
                                         OutlinedButton(
                                             onClick = { viewModel.redeemCoinsForPremium(plan) },
-                                            modifier = if (hasPlayBilling || config.isManualPaymentEnabled) Modifier.weight(1.5f) else Modifier.fillMaxWidth(),
+                                            modifier = if (hasPlayBilling) Modifier.weight(1.5f) else Modifier.fillMaxWidth(),
                                             enabled = (currentUser?.coinBalance ?: 0) >= plan.coinsRequired,
                                             colors = ButtonDefaults.outlinedButtonColors(contentColor = GoldenAmber)
                                         ) {
@@ -2790,11 +2790,11 @@ fun SubscriptionPlansTab(
                                         }
                                     }
 
-                                    if (hasPlayBilling || config.isManualPaymentEnabled) {
+                                    if (hasPlayBilling) {
                                         if (hasCoinRedemption) {
                                             Spacer(modifier = Modifier.width(10.dp))
                                         }
-                                        // Checkout button
+                                        // Google Play Checkout button
                                         Button(
                                             onClick = { onBuyGoogleBilling(plan) },
                                             modifier = if (hasCoinRedemption) Modifier.weight(2f) else Modifier.fillMaxWidth(),
