@@ -83,7 +83,7 @@ data class AdmobConfig(
 @Entity(tableName = "app_config")
 data class AppConfig(
     @PrimaryKey val id: Int = 1, // Only 1 configuration row
-    val appName: String = "Alif VPN",
+    val appName: String = "Alif Go VPN",
     val supportEmail: String = "support@alifvpn.com",
     val telegramLink: String = "https://t.me/alifvpn",
     val websiteLink: String = "https://alifvpn.com",

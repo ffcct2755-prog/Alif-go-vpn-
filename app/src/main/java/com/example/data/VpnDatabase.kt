@@ -90,7 +90,7 @@ abstract class VpnDatabase : RoomDatabase() {
             configDao.insertAppConfig(
                 AppConfig(
                     id = 1,
-                    appName = "Alif VPN",
+                    appName = "Alif Go VPN",
                     supportEmail = "support@alifvpn.com",
                     telegramLink = "https://t.me/alifvpn_official",
                     websiteLink = "https://alifvpn.com",

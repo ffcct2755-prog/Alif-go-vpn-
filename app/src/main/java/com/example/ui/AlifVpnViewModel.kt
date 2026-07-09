@@ -107,7 +107,7 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
 
     // Notification broadcast queue (Simulated)
     private val _notificationBroadcasts = MutableStateFlow<List<Pair<String, String>>>(
-        listOf("Welcome to Alif VPN" to "Connect to any server and experience unlimited speed & modern security parameters.")
+        listOf("Welcome to Alif Go VPN" to "Connect to any server and experience unlimited speed & modern security parameters.")
     )
     val notificationBroadcasts: StateFlow<List<Pair<String, String>>> = _notificationBroadcasts.asStateFlow()
 
@@ -201,7 +201,7 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     configDao.insertAppConfig(
                         AppConfig(
                             id = 1,
-                            appName = "Alif VPN",
+                            appName = "Alif Go VPN",
                             supportEmail = "support@alifvpn.com",
                             telegramLink = "https://t.me/alifvpn_official",
                             websiteLink = "https://alifvpn.com",

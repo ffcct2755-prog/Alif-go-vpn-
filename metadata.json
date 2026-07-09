@@ -1,6 +1,6 @@
 {
-  "name": "Alif VPN",
-  "description": "Professional VPN with servers, coin dynamic rewards, and live admin panel.",
+  "name": "Alif Go VPN",
+  "description": "Professional Alif Go VPN with secure fast servers, dynamic coin rewards, and subscription plans.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

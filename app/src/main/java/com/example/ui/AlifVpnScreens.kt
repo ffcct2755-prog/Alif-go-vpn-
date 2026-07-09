@@ -190,7 +190,7 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = config?.appName ?: "Alif VPN",
+                                text = config?.appName ?: "Alif Go VPN",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
@@ -1929,7 +1929,7 @@ fun AccountTab(
                     Icon(Icons.Default.PeopleAlt, contentDescription = "Referral", tint = GoldenAmber, modifier = Modifier.size(36.dp))
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text(getT("Alif VPN Affiliate Network", "আলিফ ভিপিএন অ্যাফিলিয়েট নেটওয়ার্ক"), fontWeight = FontWeight.Bold)
+                        Text(getT("Alif Go VPN Affiliate Network", "আলিফ গো ভিপিএন অ্যাফিলিয়েট নেটওয়ার্ক"), fontWeight = FontWeight.Bold)
                         Text(getT("Share your code to earn dynamic rewards", "বন্ধুদের আমন্ত্রণ জানিয়ে আয় করুন"), fontSize = 11.sp, color = Color.Gray)
                     }
                 }
@@ -2318,54 +2318,6 @@ fun SubscriptionPlansTab(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (promoFilterTypeSelected == "purch") {
-            // Dynamic customizable premium banner
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = DeepCosmicSurface),
-                border = BorderStroke(1.dp, highlightColor.copy(alpha = 0.5f))
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.WorkspacePremium,
-                            contentDescription = "",
-                            tint = highlightColor,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = config.premiumPageTitle,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = config.premiumPageSubtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.LightGray
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = getT("PREMIUM EXCLUSIVE BENEFITS", "প্রিমিয়াম বিশেষ সুবিধাসমূহ"),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = highlightColor
-                    )
-                    features.forEach { feat ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(vertical = 2.dp)
-                        ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = "", tint = highlightColor, modifier = Modifier.size(12.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = feat, fontSize = 11.sp, color = Color.White)
-                        }
-                    }
-                }
-            }
-
             // Subscription cards lists
             LazyColumn(
                 modifier = Modifier.weight(1f).testTag("plans_list"),
@@ -2390,7 +2342,7 @@ fun SubscriptionPlansTab(
                                     modifier = Modifier
                                         .background(RadiantEmerald.copy(0.2f), RoundedCornerShape(8.dp))
                                         .padding(horizontal = 10.dp, vertical = 4.dp)
-                                ) {
+                                  ) {
                                     Text(
                                         text = "$${plan.priceUsdt} USD",
                                         fontWeight = FontWeight.Bold,
@@ -2401,10 +2353,27 @@ fun SubscriptionPlansTab(
 
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = "✨ High-Speed Servers • Zero Ads • Custom Protocols • Complete Bandwidth",
+                                text = getT("✨ PREMIUM BENEFITS:", "✨ প্রিমিয়াম সুবিধাসমূহ:"),
                                 fontSize = 11.sp,
-                                color = Color.LightGray
+                                fontWeight = FontWeight.Bold,
+                                color = highlightColor
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            features.forEach { feat ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "",
+                                        tint = highlightColor,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = feat, fontSize = 11.sp, color = Color.White)
+                                }
+                            }
                             Spacer(modifier = Modifier.height(14.dp))
 
                             Row(modifier = Modifier.fillMaxWidth()) {
