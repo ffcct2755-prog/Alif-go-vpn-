@@ -12,7 +12,7 @@ android {
 
   defaultConfig {
     applicationId = "com.alif.govpn"
-    minSdk = 24
+    minSdk = 21
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
@@ -22,19 +22,10 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      val keystoreFile = file(keystorePath)
-      if (keystoreFile.exists()) {
-        storeFile = keystoreFile
-        storePassword = System.getenv("STORE_PASSWORD")
-        keyAlias = "upload"
-        keyPassword = System.getenv("KEY_PASSWORD")
-      } else {
-        storeFile = file("${rootDir}/debug.keystore")
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
-      }
+      storeFile = file("${rootDir}/debug.keystore")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
