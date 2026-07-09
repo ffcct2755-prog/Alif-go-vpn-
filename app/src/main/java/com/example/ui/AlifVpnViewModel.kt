@@ -187,12 +187,18 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                 val dbPlans = planDao.getAllPlansFlow().first()
                 if (dbPlans.isEmpty()) {
                     val plansList = listOf(
-                        SubscriptionPlan("weekly", "Weekly Plan", 7, 2.0, 0, 150),
-                        SubscriptionPlan("monthly", "Monthly Premium", 30, 5.0, 15, 500),
-                        SubscriptionPlan("3month", "3 Months Super saving", 90, 12.0, 20, 1200),
-                        SubscriptionPlan("6month", "6 Months Ultimate", 180, 20.0, 25, 2000),
-                        SubscriptionPlan("yearly", "Yearly Unlimited", 365, 30.0, 40, 3500),
-                        SubscriptionPlan("lifetime", "Lifetime Freedom", 9999, 50.0, 50, 6000)
+                        SubscriptionPlan("weekly", "Weekly Plan", 7, 2.0, 0, 150, deviceLimit = 1),
+                        SubscriptionPlan("monthly", "Monthly Premium", 30, 5.0, 15, 500, deviceLimit = 1),
+                        SubscriptionPlan("3month", "3 Months Super saving", 90, 12.0, 20, 1200, deviceLimit = 1),
+                        SubscriptionPlan("6month", "6 Months Ultimate", 180, 20.0, 25, 2000, deviceLimit = 1),
+                        SubscriptionPlan("yearly", "Yearly Unlimited", 365, 30.0, 40, 3500, deviceLimit = 1),
+                        SubscriptionPlan("lifetime", "Lifetime Freedom", 9999, 50.0, 50, 6000, deviceLimit = 1),
+                        
+                        SubscriptionPlan("reseller_starter", "Reseller Starter Pack", 30, 15.0, 0, 1500, deviceLimit = 50),
+                        SubscriptionPlan("reseller_silver", "Reseller Silver Pack", 30, 25.0, 10, 2500, deviceLimit = 100),
+                        SubscriptionPlan("reseller_gold", "Reseller Gold Pack", 30, 55.0, 15, 5500, deviceLimit = 250),
+                        SubscriptionPlan("reseller_enterprise", "Reseller Enterprise VIP", 30, 99.0, 20, 9900, deviceLimit = 500),
+                        SubscriptionPlan("reseller_unlimited", "Server Broker Unlimited", 30, 180.0, 25, 18000, deviceLimit = 1000)
                     )
                     for (plan in plansList) {
                         planDao.insertPlan(plan)

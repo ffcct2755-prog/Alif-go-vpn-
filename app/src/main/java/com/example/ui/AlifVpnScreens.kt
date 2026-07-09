@@ -2392,12 +2392,13 @@ fun SubscriptionPlansTab(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (promoFilterTypeSelected == "purch") {
+            val premiumPlans = plans.filter { !it.id.startsWith("reseller") }
             // Subscription cards lists
             LazyColumn(
                 modifier = Modifier.weight(1f).testTag("plans_list"),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(plans) { plan ->
+                items(premiumPlans) { plan ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -2677,76 +2678,133 @@ fun SubscriptionPlansTab(
                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                 )
 
-                val resellerPackages = listOf(
-                    Triple("Reseller Starter Pack", "50 Devices", "$15 USD"),
-                    Triple("Reseller Silver Pack", "100 Devices", "$25 USD"),
-                    Triple("Reseller Gold Pack", "250 Devices", "$55 USD"),
-                    Triple("Reseller Enterprise VIP", "500 Devices", "$99 USD"),
-                    Triple("Server Broker Unlimited", "1000 Devices", "$180 USD")
-                )
+                val resellerPlans = plans.filter { it.id.startsWith("reseller") }
 
-                resellerPackages.forEach { pack ->
+                resellerPlans.forEach { plan ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = DeepCosmicSurface),
-                        border = BorderStroke(1.dp, ElectricBlue.copy(0.3f))
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = pack.first,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    fontSize = 14.sp
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Devices,
-                                        contentDescription = null,
-                                        tint = GoldenAmber,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(text = plan.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                    Text(text = "Expires in ${plan.durationDays} days", fontSize = 11.sp, color = Color.Gray)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Devices,
+                                            contentDescription = null,
+                                            tint = ElectricBlue,
+                                            modifier = Modifier.size(11.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = getT("Device Limit: ${plan.deviceLimit} phones", "ডিভাইস সীমা: সর্বোচ্চ ${plan.deviceLimit} টি ফোন"),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.LightGray
+                                        )
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .background(RadiantEmerald.copy(0.2f), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
                                     Text(
-                                        text = getT("Limit: ${pack.second}", "সীমা: ${pack.second}"),
-                                        fontSize = 11.sp,
-                                        color = GoldenAmber,
-                                        fontWeight = FontWeight.SemiBold
+                                        text = "$${plan.priceUsdt} USD",
+                                        fontWeight = FontWeight.Bold,
+                                        color = RadiantEmerald
                                     )
                                 }
                             }
 
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = pack.third,
-                                    fontWeight = FontWeight.Bold,
-                                    color = RadiantEmerald,
-                                    fontSize = 14.sp
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Button(
-                                    onClick = {
-                                        val orderMsg = "Hi Admin, I want to purchase the ${pack.first} (${pack.second}) for my VPN/Server clients. Please send me payment details."
-                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(orderMsg))
-                                        android.widget.Toast.makeText(context, "Order template copied to clipboard!", android.widget.Toast.LENGTH_SHORT).show()
-                                        try {
-                                            uriHandler.openUri(config.telegramLink)
-                                        } catch (e: Exception) {
-                                            uriHandler.openUri("https://t.me/alifvpn_official")
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                    modifier = Modifier.height(26.dp)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = getT("✨ RESELLER BENEFITS:", "✨ রিসেলার সুবিধাসমূহ:"),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = highlightColor
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            val resellerFeatures = listOf(
+                                getT("Wholesale pricing discount", "পাইকারি দামে ডিসকাউন্ট পিন কোড"),
+                                getT("Sell pins with higher device limits", "বেশি ডিভাইস সীমার পিন বিক্রির সুবিধা"),
+                                getT("Full admin console access", "সম্পূর্ণ এডমিন প্যানেল সাপোর্ট"),
+                                getT("High connection performance priority", "উচ্চ ক্ষমতার ডেডিকেটেড সার্ভার আইপি"),
+                                getT("24/7 dedicated support agent line", "২৪/৭ ডেডিকেটেড এজেন্ট সাপোর্ট")
+                            )
+                            resellerFeatures.forEach { feat ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 2.dp)
                                 ) {
-                                    Text(getT("BUY PINs", "কিনুন"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "",
+                                        tint = highlightColor,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = feat, fontSize = 11.sp, color = Color.White)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                val hasPlayBilling = config.isPlayBillingEnabled
+                                val hasCoinRedemption = config.isCoinRedemptionEnabled
+
+                                if (!config.isPlayBillingEnabled && !config.isManualPaymentEnabled && !hasCoinRedemption) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                                            .padding(12.dp)
+                                    ) {
+                                        Text(
+                                            text = getT("Purchasing is temporarily disabled by Admin.", "এডমিন দ্বারা সাময়িকভাবে ক্রয় করার অপশন বন্ধ আছে।"),
+                                            color = Color.LightGray,
+                                            fontSize = 12.sp,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                } else {
+                                    if (hasCoinRedemption) {
+                                        // Conversion with Coins button
+                                        OutlinedButton(
+                                            onClick = { viewModel.redeemCoinsForPremium(plan) },
+                                            modifier = if (hasPlayBilling || config.isManualPaymentEnabled) Modifier.weight(1.5f) else Modifier.fillMaxWidth(),
+                                            enabled = (currentUser?.coinBalance ?: 0) >= plan.coinsRequired,
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = GoldenAmber)
+                                        ) {
+                                            Icon(Icons.Default.MonetizationOn, contentDescription = "", modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("${plan.coinsRequired} Coins", fontSize = 11.sp)
+                                        }
+                                    }
+
+                                    if (hasPlayBilling || config.isManualPaymentEnabled) {
+                                        if (hasCoinRedemption) {
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                        }
+                                        // Checkout button
+                                        Button(
+                                            onClick = { onBuyGoogleBilling(plan) },
+                                            modifier = if (hasCoinRedemption) Modifier.weight(2f) else Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
+                                        ) {
+                                            Icon(Icons.Default.ShoppingCart, contentDescription = "", modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(getT("Buy / Subscribe", "ক্রয় / সাবস্ক্রাইব"), fontSize = 11.sp)
+                                        }
+                                    }
                                 }
                             }
                         }
