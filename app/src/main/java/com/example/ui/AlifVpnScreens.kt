@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.data.*
@@ -83,6 +84,7 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
 
     // Navigation and Alerts
     var activeTab by remember { mutableStateOf("connect") }
+    var showChromeSimulator by remember { mutableStateOf(false) }
     var showAuthDialog by remember { mutableStateOf(false) }
     var showServerSelector by remember { mutableStateOf(false) }
     var showProtocolSettings by remember { mutableStateOf(false) }
@@ -123,6 +125,9 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
     var simulatedAdProgress by remember { mutableFloatStateOf(0f) }
     var activeSimulatedAdByCoins by remember { mutableStateOf<Boolean?>(null) } // true: Video Ad, false: Interstitial connect Ad
     var showAdDialog by remember { mutableStateOf(false) }
+    var showAppOpenAdDialog by remember { mutableStateOf(false) }
+    var appOpenAdProgress by remember { mutableFloatStateOf(0f) }
+    var isFirstLaunch by remember { mutableStateOf(true) }
 
     val notifications by viewModel.notificationBroadcasts.collectAsState()
 
@@ -206,122 +211,174 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0F111A)),
+                .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
-            // Simulated side buttons for physical smartphone appearance
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight(0.95f)
-                    .aspectRatio(0.485f)
-                    .widthIn(max = 420.dp)
-                    .padding(horizontal = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                // Volume keys on the left side
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .offset(x = (-8).dp)
-                        .padding(bottom = 60.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(modifier = Modifier.size(width = 3.dp, height = 40.dp).background(Color(0xFF475569), RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp)))
-                    Box(modifier = Modifier.size(width = 3.dp, height = 40.dp).background(Color(0xFF475569), RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp)))
-                }
-                
-                // Power key on the right side
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .offset(x = 8.dp)
-                        .padding(bottom = 120.dp)
-                        .size(width = 3.dp, height = 50.dp)
-                        .background(Color(0xFF475569), RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
-                )
+            Scaffold(
+                topBar = {
+                    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+                        // 1. Simulated Android System Status Bar
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(24.dp)
+                                .padding(horizontal = 16.dp)
+                                .padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                                        // Left Side: Clock Time
+                                        Text(
+                                            text = "10:45 AM",
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
 
-                // Main Smartphone Body
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFF1E293B), RoundedCornerShape(40.dp))
-                        .border(BorderStroke(4.dp, Brush.linearGradient(listOf(Color(0xFF475569), Color(0xFF1E293B), Color(0xFF64748B)))), RoundedCornerShape(40.dp))
-                        .padding(6.dp)
-                ) {
-                    // Inner Screen space with clipped rounded corners
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(34.dp))
-                            .background(MaterialTheme.colorScheme.background)
-                    ) {
-                        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Security,
-                                contentDescription = "Logo",
-                                tint = RadiantEmerald,
-                                modifier = Modifier.size(30.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = config?.appName ?: "Alif Go VPN",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            if (currentUser?.isPremium == true) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .background(GoldenAmber, RoundedCornerShape(4.dp))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "PRO",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 10.sp,
-                                        color = Color.Black
-                                    )
+                                        // Right Side: Network status, Battery, and the critical VPN Key Icon
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            if (connectionState == "CONNECTED") {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                                    modifier = Modifier
+                                                        .background(RadiantEmerald.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.VpnKey,
+                                                        contentDescription = "VPN Key Connected",
+                                                        tint = RadiantEmerald,
+                                                        modifier = Modifier.size(11.dp)
+                                                    )
+                                                    Text(
+                                                        text = "VPN",
+                                                        color = RadiantEmerald,
+                                                        fontSize = 8.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+
+                                            Icon(
+                                                imageVector = Icons.Default.Wifi,
+                                                contentDescription = "WiFi Signal Status",
+                                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                                modifier = Modifier.size(12.dp)
+                                            )
+
+                                            // Custom Signal Strength Bars
+                                            Row(
+                                                verticalAlignment = Alignment.Bottom,
+                                                horizontalArrangement = Arrangement.spacedBy(1.dp),
+                                                modifier = Modifier.height(8.dp)
+                                            ) {
+                                                Box(modifier = Modifier.size(width = 2.dp, height = 2.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)))
+                                                Box(modifier = Modifier.size(width = 2.dp, height = 4.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)))
+                                                Box(modifier = Modifier.size(width = 2.dp, height = 6.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)))
+                                                Box(modifier = Modifier.size(width = 2.dp, height = 8.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)))
+                                            }
+
+                                            // Custom Battery Indicator
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(end = 2.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(width = 16.dp, height = 8.dp)
+                                                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), RoundedCornerShape(1.5.dp))
+                                                        .padding(1.dp)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxHeight()
+                                                            .fillMaxWidth(0.9f)
+                                                            .background(
+                                                                if (connectionState == "CONNECTED") RadiantEmerald else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), 
+                                                                RoundedCornerShape(1.dp)
+                                                            )
+                                                    )
+                                                }
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(width = 1.dp, height = 3.dp)
+                                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), RoundedCornerShape(topEnd = 1.dp, bottomEnd = 1.dp))
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // 2. Main Top App Bar Directly
+                                    TopAppBar(
+                        title = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Security,
+                                    contentDescription = "Logo",
+                                    tint = RadiantEmerald,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = config?.appName ?: "Alif Go VPN",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                if (currentUser?.isPremium == true) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .background(GoldenAmber, RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = "PRO",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp,
+                                            color = Color.Black
+                                        )
+                                    }
                                 }
                             }
-                        }
-                    },
-                    actions = {
-                        // Language Selector
-                        IconButton(onClick = { langEnglish = !langEnglish }) {
-                            Icon(
-                                imageVector = Icons.Default.Language,
-                                contentDescription = "Change Language",
-                                tint = ElectricBlue
-                            )
-                        }
+                        },
+                        actions = {
+                            // Language Selector
+                            IconButton(onClick = { langEnglish = !langEnglish }) {
+                                Icon(
+                                    imageVector = Icons.Default.Language,
+                                    contentDescription = "Change Language",
+                                    tint = ElectricBlue
+                                )
+                            }
 
-                        // Admin Mode toggle switch
-                        IconButton(onClick = { isAdminMode = !isAdminMode }) {
-                            Icon(
-                                imageVector = Icons.Default.AdminPanelSettings,
-                                contentDescription = "Admin Mode Toggle",
-                                tint = if (isAdminMode) RadiantEmerald else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-                        }
+                            // Admin Mode toggle switch
+                            IconButton(onClick = { isAdminMode = !isAdminMode }) {
+                                Icon(
+                                    imageVector = Icons.Default.AdminPanelSettings,
+                                    contentDescription = "Admin Mode Toggle",
+                                    tint = if (isAdminMode) RadiantEmerald else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                )
+                            }
 
-                        // Redeem (Rewards) top switch button
-                        IconButton(onClick = { activeTab = "rewards"; isAdminMode = false }) {
-                            Icon(
-                                imageVector = Icons.Default.Stars,
-                                contentDescription = "Redeem Rewards",
-                                tint = if (activeTab == "rewards" && !isAdminMode) GoldenAmber else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
+                            // Redeem (Rewards) top switch button
+                            IconButton(onClick = { activeTab = "rewards"; isAdminMode = false }) {
+                                Icon(
+                                    imageVector = Icons.Default.Stars,
+                                    contentDescription = "Redeem Rewards",
+                                    tint = if (activeTab == "rewards" && !isAdminMode) GoldenAmber else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
                     )
-                )
+                }
             },
             bottomBar = {
                 Column {
@@ -362,7 +419,13 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                         )
                         NavigationBarItem(
                             selected = activeTab == "account" && !isAdminMode,
-                            onClick = { activeTab = "account"; isAdminMode = false },
+                            onClick = { 
+                                activeTab = "account"
+                                isAdminMode = false
+                                if (currEmail == "guest@alifvpn.com" || currentUser == null) {
+                                    showAuthDialog = true
+                                }
+                            },
                             icon = { Icon(Icons.Default.AccountCircle, "Account") },
                             label = { Text(getT("Account", "অ্যাকাউন্ট"), fontSize = 11.sp) }
                         )
@@ -407,18 +470,23 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                             onSelectProtocol = { showProtocolSettings = true },
                             onTriggerAuth = { showAuthDialog = true },
                             onTriggerInterstitialAdBlock = {
-                                simulatedAdProgress = 0f
-                                activeSimulatedAdByCoins = false
-                                showAdDialog = true
-                                scope.launch {
-                                    for (i in 1..25) {
-                                        delay(100)
-                                        simulatedAdProgress = i / 25f
+                                if (admob?.isInterstitialEnabled == true) {
+                                    simulatedAdProgress = 0f
+                                    activeSimulatedAdByCoins = false
+                                    showAdDialog = true
+                                    scope.launch {
+                                        for (i in 1..25) {
+                                            delay(100)
+                                            simulatedAdProgress = i / 25f
+                                        }
+                                        showAdDialog = false
+                                        viewModel.toggleConnection(deviceId = deviceId)
                                     }
-                                    showAdDialog = false
+                                } else {
                                     viewModel.toggleConnection(deviceId = deviceId)
                                 }
-                            }
+                            },
+                            onOpenChromeSimulator = { showChromeSimulator = true }
                         )
                         "servers" -> ServerListTab(
                             viewModel = viewModel,
@@ -459,6 +527,7 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                             currentUser = currentUser,
                             transactions = userTransactions,
                             getT = getT,
+                            onTriggerAuth = { showAuthDialog = true },
                             onBuyGoogleBilling = { plan ->
                                 selectedPlanForPayment = plan
                                 showBillingDialog = true
@@ -484,49 +553,6 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                 }
             }
         }
-
-            // Simulated Dynamic Island/Punch hole camera at the top of the mobile screen
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 8.dp)
-                    .size(width = 110.dp, height = 22.dp)
-                    .background(Color.Black, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Security light status dot (emerald if connected, crimson if disconnected)
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .background(if (connectionState == "CONNECTED") RadiantEmerald else CrimsonRose, CircleShape)
-                    )
-                    // Sleek camera lens ring
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(Color(0xFF111827), CircleShape)
-                            .border(1.dp, Color(0xFF374151), CircleShape)
-                    )
-                }
-            }
-
-            // Simulated iOS/Android dynamic home bar at the bottom
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 6.dp)
-                    .size(width = 130.dp, height = 4.dp)
-                    .background(Color.LightGray.copy(alpha = 0.5f), CircleShape)
-            )
-        } // Close inner screen Box
-    } // Close main smartphone body Box
-} // Close aspect ratio wrapper Box
-} // Close outer centering Box
 
         // --- ALL SYSTEM DIALOG OVERLAYS ---
 
@@ -1288,7 +1314,118 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                 }
             }
         }
+
+        // Animated AdMob App Open Ad on startup
+        LaunchedEffect(admob) {
+            val admobLocal = admob
+            if (admobLocal != null && isFirstLaunch) {
+                isFirstLaunch = false
+                if (admobLocal.isAppOpenEnabled) {
+                    appOpenAdProgress = 0f
+                    showAppOpenAdDialog = true
+                    scope.launch {
+                        for (i in 1..30) {
+                            delay(100)
+                            appOpenAdProgress = i / 30f
+                        }
+                        showAppOpenAdDialog = false
+                    }
+                }
+            }
+        }
+
+        if (showAppOpenAdDialog) {
+            Dialog(onDismissRequest = {}) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Black),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .background(Color.Yellow, RoundedCornerShape(2.dp))
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                Text(text = "Ad", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "AdMob App Open Ad",
+                                fontSize = 12.sp,
+                                color = Color.White
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Icon(
+                            imageVector = Icons.Default.PowerSettingsNew,
+                            contentDescription = "App Open",
+                            tint = ElectricBlue,
+                            modifier = Modifier.size(70.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Welcome! Running security optimization & pre-warming secure tunnel lines...",
+                            color = Color.LightGray,
+                            textAlign = TextAlign.Center,
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        LinearProgressIndicator(
+                            progress = { appOpenAdProgress },
+                            color = ElectricBlue,
+                            trackColor = Color.DarkGray,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Time Left: ${Math.round((1.0 - appOpenAdProgress) * 3.0)}s",
+                            color = Color.Gray,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        val currentPublicIp by viewModel.currentPublicIpAddress.collectAsState()
+        ChromeSimulatorDialog(
+            show = showChromeSimulator,
+            onDismiss = { showChromeSimulator = false },
+            connectionState = connectionState,
+            selectedServer = selectedServer,
+            currentPublicIp = currentPublicIp,
+            getT = getT
+        )
+
+        // Full-screen vertical white lines on the left and right sides of the screen
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(2.dp)
+                .background(Color.White)
+                .align(Alignment.CenterStart)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(2.dp)
+                .background(Color.White)
+                .align(Alignment.CenterEnd)
+        )
     }
+}
 }
 }
 
@@ -1304,7 +1441,8 @@ fun ConnectDashboardTab(
     onPickServer: () -> Unit,
     onSelectProtocol: () -> Unit,
     onTriggerAuth: () -> Unit,
-    onTriggerInterstitialAdBlock: () -> Unit
+    onTriggerInterstitialAdBlock: () -> Unit,
+    onOpenChromeSimulator: () -> Unit
 ) {
     val context = LocalContext.current
     val deviceId = remember {
@@ -1510,6 +1648,63 @@ fun ConnectDashboardTab(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Chrome Browser Simulator shortcut card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .padding(vertical = 4.dp)
+                .clickable { onOpenChromeSimulator() },
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            border = BorderStroke(
+                1.dp, 
+                ElectricBlue.copy(alpha = 0.3f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(ElectricBlue.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Language,
+                        contentDescription = "Chrome Simulator",
+                        tint = ElectricBlue,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = getT("Simulated Chrome Browser", "ক্রোম ব্রাউজার (আইপি টেস্ট)"),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = ElectricBlue
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = getT("Verify your VPN IP changes in virtual Google Chrome", "ভার্চুয়াল গুগল ক্রোমে ভিপিএন আইপি পরীক্ষা করুন"),
+                        fontSize = 10.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                Icon(Icons.Default.ChevronRight, contentDescription = "Open", tint = Color.Gray)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         // Selected Server Indicator Widget
         Card(
             modifier = Modifier
@@ -1693,6 +1888,55 @@ fun ConnectDashboardTab(
                     SecurityDotSetting(label = "Kill Switch", isEnabled = killSwitchOn, onToggle = { viewModel.killSwitch.value = !killSwitchOn })
                     SecurityDotSetting(label = "DNS Leak", isEnabled = dnsLeakOn, onToggle = { viewModel.dnsLeakProtection.value = !dnsLeakOn })
                     SecurityDotSetting(label = "IPv6 Leak", isEnabled = ipv6On, onToggle = { viewModel.ipv6LeakProtection.value = !ipv6On })
+                }
+            }
+        }
+
+        // Google AdMob Native Ad Simulation
+        val admobConfigState by viewModel.admobConfig.collectAsState()
+        if (admobConfigState?.isNativeEnabled == true) {
+            val nativePlacementId = admobConfigState?.nativePlacementId?.ifBlank { "ca-app-pub-1131981412237081/8083218739" } ?: "ca-app-pub-1131981412237081/8083218739"
+            Spacer(modifier = Modifier.height(20.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, RadiantEmerald.copy(alpha = 0.2f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .background(Color.Yellow, RoundedCornerShape(2.dp))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Text(text = "Ad", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Google AdMob Native Ad: $nativePlacementId",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = RadiantEmerald,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = getT("Secure your connections and unlock turbo premium speeds by inviting your friends to Alif Go VPN. Watch reward videos to claim premium points daily!", "আলিফ গো ভিপিএন ব্যবহার করে আপনার সংযোগ নিরাপদ করুন এবং আপনার বন্ধুদের আমন্ত্রণ জানিয়ে দ্রুত গতি সচল করুন। প্রতিদিন প্রিমিয়াম পয়েন্ট দাবি করুন!"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.LightGray
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { /* Simulated native click */ },
+                        colors = ButtonDefaults.buttonColors(containerColor = RadiantEmerald),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(text = getT("Learn More & Claim Coins", "আরও জানুন এবং কয়েন দাবি করুন"), color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -2138,6 +2382,8 @@ fun RewardsTab(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Watch video ad rewards option
+        val admob by viewModel.admobConfig.collectAsState()
+        val context = LocalContext.current
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -2152,12 +2398,20 @@ fun RewardsTab(
                     Text(getT("Watch Sponsored Ads", "স্পন্সরড ভিডিও বিজ্ঞাপন"), fontWeight = FontWeight.Bold)
                     Text(getT("Earn coins on watching short sponsor ad clips", "সংক্ষিপ্ত বিজ্ঞাপন দেখে কয়েন আয় করুন"), fontSize = 11.sp, color = Color.Gray)
                 }
+                val isAdEnabled = admob?.isRewardedEnabled == true
                 Button(
-                    onClick = { onWatchVideoAd() },
-                    colors = ButtonDefaults.buttonColors(containerColor = RadiantEmerald),
-                    modifier = Modifier.testTag("watch_ad_button")
+                    onClick = {
+                        if (isAdEnabled) {
+                            onWatchVideoAd()
+                        } else {
+                            android.widget.Toast.makeText(context, getT("Rewarded Ads are currently disabled by Admin!", "রিওয়ার্ডেড বিজ্ঞাপন বর্তমানে এডমিন দ্বারা বন্ধ আছে!"), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = if (isAdEnabled) RadiantEmerald else Color.Gray),
+                    modifier = Modifier.testTag("watch_ad_button"),
+                    enabled = isAdEnabled
                 ) {
-                    Text("Watch")
+                    Text(if (isAdEnabled) "Watch" else "Disabled")
                 }
             }
         }
@@ -2657,6 +2911,7 @@ fun SubscriptionPlansTab(
     currentUser: UserSession?,
     transactions: List<USDTTransaction>,
     getT: (String, String) -> String,
+    onTriggerAuth: () -> Unit,
     onBuyGoogleBilling: (SubscriptionPlan) -> Unit
 ) {
     var promoFilterTypeSelected by remember { mutableStateOf("purch") } // purch: buy plans, tx: history log
@@ -2676,11 +2931,51 @@ fun SubscriptionPlansTab(
         config.premiumPageFeaturesList.split(";").filter { it.isNotBlank() }
     }
 
+    val isGuest = currentUser == null || currentUser.email == "guest@alifvpn.com"
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        if (isGuest) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+                    .clickable { onTriggerAuth() },
+                colors = CardDefaults.cardColors(containerColor = CrimsonRose.copy(alpha = 0.15f)),
+                border = BorderStroke(1.dp, CrimsonRose.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Login Needed",
+                        tint = CrimsonRose,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = getT("Login Required", "লগইন করা আবশ্যক"),
+                            fontWeight = FontWeight.Bold,
+                            color = CrimsonRose,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = getT("You must log in to buy a premium subscription or activate a voucher PIN.", "প্রিমিয়াম সাবস্ক্রিপশন কিনতে বা ভাউচার পিন অ্যাক্টিভেট করতে আপনাকে অবশ্যই লগইন করতে হবে।"),
+                            color = Color.LightGray,
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+                }
+            }
+        }
         Text(
             text = getT("ALIF ACTIVE SUBSCRIPTION", "আলিফ সক্রিয় সাবস্ক্রিপশন"),
             style = MaterialTheme.typography.titleMedium,
@@ -2896,9 +3191,16 @@ fun SubscriptionPlansTab(
                                     if (hasCoinRedemption) {
                                         // Conversion with Coins button
                                         OutlinedButton(
-                                            onClick = { viewModel.redeemCoinsForPremium(plan) },
+                                            onClick = { 
+                                                if (isGuest) {
+                                                    android.widget.Toast.makeText(context, getT("Please log in to redeem coins for premium!", "কয়েন দিয়ে প্রিমিয়াম কিনতে অনুগ্রহ করে প্রথমে লগইন করুন!"), android.widget.Toast.LENGTH_LONG).show()
+                                                    onTriggerAuth()
+                                                } else {
+                                                    viewModel.redeemCoinsForPremium(plan) 
+                                                }
+                                            },
                                             modifier = if (hasPlayBilling) Modifier.weight(1.5f) else Modifier.fillMaxWidth(),
-                                            enabled = (currentUser?.coinBalance ?: 0) >= plan.coinsRequired,
+                                            enabled = if (isGuest) true else (currentUser?.coinBalance ?: 0) >= plan.coinsRequired,
                                             colors = ButtonDefaults.outlinedButtonColors(contentColor = GoldenAmber)
                                         ) {
                                             Icon(Icons.Default.MonetizationOn, contentDescription = "", modifier = Modifier.size(16.dp))
@@ -2913,7 +3215,14 @@ fun SubscriptionPlansTab(
                                         }
                                         // Google Play Checkout button
                                         Button(
-                                            onClick = { onBuyGoogleBilling(plan) },
+                                            onClick = { 
+                                                if (isGuest) {
+                                                    android.widget.Toast.makeText(context, getT("Please log in to purchase a premium plan!", "প্রিমিয়াম প্যাকেজ কিনতে অনুগ্রহ করে প্রথমে লগইন করুন!"), android.widget.Toast.LENGTH_LONG).show()
+                                                    onTriggerAuth()
+                                                } else {
+                                                    onBuyGoogleBilling(plan) 
+                                                }
+                                            },
                                             modifier = if (hasCoinRedemption) Modifier.weight(2f) else Modifier.fillMaxWidth(),
                                             colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
                                         ) {
@@ -2984,17 +3293,22 @@ fun SubscriptionPlansTab(
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(
                             onClick = {
-                                if (pinInput.isNotBlank()) {
-                                    viewModel.redeemActivationPin(pinInput) { success, msg ->
-                                        isActivationSuccess = success
-                                        activationMessage = msg
-                                        if (success) {
-                                            pinInput = ""
-                                        }
-                                    }
+                                if (isGuest) {
+                                    android.widget.Toast.makeText(context, getT("Please log in to activate a voucher PIN!", "ভাউচার পিন অ্যাক্টিভেট করতে অনুগ্রহ করে প্রথমে লগইন করুন!"), android.widget.Toast.LENGTH_LONG).show()
+                                    onTriggerAuth()
                                 } else {
-                                    isActivationSuccess = false
-                                    activationMessage = "Please enter a PIN code first."
+                                    if (pinInput.isNotBlank()) {
+                                        viewModel.redeemActivationPin(pinInput) { success, msg ->
+                                            isActivationSuccess = success
+                                            activationMessage = msg
+                                            if (success) {
+                                                pinInput = ""
+                                            }
+                                        }
+                                    } else {
+                                        isActivationSuccess = false
+                                        activationMessage = "Please enter a PIN code first."
+                                    }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -3136,9 +3450,16 @@ fun SubscriptionPlansTab(
                                     if (hasCoinRedemption) {
                                         // Conversion with Coins button
                                         OutlinedButton(
-                                            onClick = { viewModel.redeemCoinsForPremium(plan) },
+                                            onClick = { 
+                                                if (isGuest) {
+                                                    android.widget.Toast.makeText(context, getT("Please log in to redeem coins for premium!", "কয়েন দিয়ে প্রিমিয়াম কিনতে অনুগ্রহ করে প্রথমে লগইন করুন!"), android.widget.Toast.LENGTH_LONG).show()
+                                                    onTriggerAuth()
+                                                } else {
+                                                    viewModel.redeemCoinsForPremium(plan) 
+                                                }
+                                            },
                                             modifier = if (hasPlayBilling) Modifier.weight(1.5f) else Modifier.fillMaxWidth(),
-                                            enabled = (currentUser?.coinBalance ?: 0) >= plan.coinsRequired,
+                                            enabled = if (isGuest) true else (currentUser?.coinBalance ?: 0) >= plan.coinsRequired,
                                             colors = ButtonDefaults.outlinedButtonColors(contentColor = GoldenAmber)
                                         ) {
                                             Icon(Icons.Default.MonetizationOn, contentDescription = "", modifier = Modifier.size(16.dp))
@@ -3153,7 +3474,14 @@ fun SubscriptionPlansTab(
                                         }
                                         // Google Play Checkout button
                                         Button(
-                                            onClick = { onBuyGoogleBilling(plan) },
+                                            onClick = { 
+                                                if (isGuest) {
+                                                    android.widget.Toast.makeText(context, getT("Please log in to purchase a premium plan!", "প্রিমিয়াম প্যাকেজ কিনতে অনুগ্রহ করে প্রথমে লগইন করুন!"), android.widget.Toast.LENGTH_LONG).show()
+                                                    onTriggerAuth()
+                                                } else {
+                                                    onBuyGoogleBilling(plan) 
+                                                }
+                                            },
                                             modifier = if (hasCoinRedemption) Modifier.weight(2f) else Modifier.fillMaxWidth(),
                                             colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
                                         ) {
@@ -5655,6 +5983,31 @@ fun AdminAdmobManagement(
     var admobRewardedIdText by remember { mutableStateOf(admob?.rewardedPlacementId ?: "ca-app-pub-1131981412237081/3495060863") }
     var admobNativeIdText by remember { mutableStateOf(admob?.nativePlacementId ?: "ca-app-pub-1131981412237081/8083218739") }
 
+    // Google AdMob status toggle states
+    var isBannerEnabled by remember { mutableStateOf(admob?.isBannerEnabled ?: true) }
+    var isInterstitialEnabled by remember { mutableStateOf(admob?.isInterstitialEnabled ?: true) }
+    var isRewardedEnabled by remember { mutableStateOf(admob?.isRewardedEnabled ?: true) }
+    var isRewardedInterstitialEnabled by remember { mutableStateOf(admob?.isRewardedInterstitialEnabled ?: true) }
+    var isNativeEnabled by remember { mutableStateOf(admob?.isNativeEnabled ?: true) }
+    var isAppOpenEnabled by remember { mutableStateOf(admob?.isAppOpenEnabled ?: true) }
+
+    LaunchedEffect(admob) {
+        admob?.let {
+            rewardCoinsText = it.rewardCoinsPerAd.toString()
+            admobAppIdText = it.appId
+            admobBannerIdText = it.bannerPlacementId
+            admobInterstitialIdText = it.interstitialPlacementId
+            admobRewardedIdText = it.rewardedPlacementId
+            admobNativeIdText = it.nativePlacementId
+            isBannerEnabled = it.isBannerEnabled
+            isInterstitialEnabled = it.isInterstitialEnabled
+            isRewardedEnabled = it.isRewardedEnabled
+            isRewardedInterstitialEnabled = it.isRewardedInterstitialEnabled
+            isNativeEnabled = it.isNativeEnabled
+            isAppOpenEnabled = it.isAppOpenEnabled
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -5692,6 +6045,136 @@ fun AdminAdmobManagement(
                     colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
                 ) {
                     Text("Apply Coins Reward Settings")
+                }
+            }
+        }
+
+        // AdMob active formats toggle configurations
+        Card(colors = CardDefaults.cardColors(containerColor = DeepCosmicSurface)) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("AdMob Formats Status (বিজ্ঞাপন ফরম্যাট সচল/অচল করুন)", fontWeight = FontWeight.Bold, color = Color.White)
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Banner
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Enable Banner Ads", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("ব্যানার বিজ্ঞাপন চালু/বন্ধ করুন", fontSize = 10.sp, color = Color.Gray)
+                    }
+                    Switch(
+                        checked = isBannerEnabled,
+                        onCheckedChange = { isBannerEnabled = it }
+                    )
+                }
+                HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+
+                // Interstitial
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Enable Interstitial Ads", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("ইন্টারস্টিশিয়াল বিজ্ঞাপন চালু/বন্ধ করুন", fontSize = 10.sp, color = Color.Gray)
+                    }
+                    Switch(
+                        checked = isInterstitialEnabled,
+                        onCheckedChange = { isInterstitialEnabled = it }
+                    )
+                }
+                HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+
+                // Rewarded
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Enable Rewarded Video Ads", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("রিওয়ার্ডেড ভিডিও বিজ্ঞাপন চালু/বন্ধ করুন", fontSize = 10.sp, color = Color.Gray)
+                    }
+                    Switch(
+                        checked = isRewardedEnabled,
+                        onCheckedChange = { isRewardedEnabled = it }
+                    )
+                }
+                HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+
+                // Rewarded Interstitial
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Enable Rewarded Interstitial Ads", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("রিওয়ার্ডেড ইন্টারস্টিশিয়াল বিজ্ঞাপন চালু/বন্ধ করুন", fontSize = 10.sp, color = Color.Gray)
+                    }
+                    Switch(
+                        checked = isRewardedInterstitialEnabled,
+                        onCheckedChange = { isRewardedInterstitialEnabled = it }
+                    )
+                }
+                HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+
+                // Native Ads
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Enable Native Ads", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("নেটিভ বিজ্ঞাপন চালু/বন্ধ করুন", fontSize = 10.sp, color = Color.Gray)
+                    }
+                    Switch(
+                        checked = isNativeEnabled,
+                        onCheckedChange = { isNativeEnabled = it }
+                    )
+                }
+                HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+
+                // App Open Ads
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Enable App Open Ads on startup", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("অ্যাপ ওপেন বিজ্ঞাপন (স্টার্টআপ) চালু/বন্ধ করুন", fontSize = 10.sp, color = Color.Gray)
+                    }
+                    Switch(
+                        checked = isAppOpenEnabled,
+                        onCheckedChange = { isAppOpenEnabled = it }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        if (admob != null) {
+                            val updated = admob.copy(
+                                isBannerEnabled = isBannerEnabled,
+                                isInterstitialEnabled = isInterstitialEnabled,
+                                isRewardedEnabled = isRewardedEnabled,
+                                isRewardedInterstitialEnabled = isRewardedInterstitialEnabled,
+                                isNativeEnabled = isNativeEnabled,
+                                isAppOpenEnabled = isAppOpenEnabled
+                            )
+                            viewModel.adminUpdateAdConfiguration(updated)
+                            android.widget.Toast.makeText(context, "Active formats settings updated!", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
+                ) {
+                    Text("Apply Formats Settings")
                 }
             }
         }
@@ -5787,7 +6270,13 @@ fun AdminAdmobManagement(
                                     bannerPlacementId = admobBannerIdText.trim(),
                                     interstitialPlacementId = admobInterstitialIdText.trim(),
                                     rewardedPlacementId = admobRewardedIdText.trim(),
-                                    nativePlacementId = admobNativeIdText.trim()
+                                    nativePlacementId = admobNativeIdText.trim(),
+                                    isBannerEnabled = isBannerEnabled,
+                                    isInterstitialEnabled = isInterstitialEnabled,
+                                    isRewardedEnabled = isRewardedEnabled,
+                                    isRewardedInterstitialEnabled = isRewardedInterstitialEnabled,
+                                    isNativeEnabled = isNativeEnabled,
+                                    isAppOpenEnabled = isAppOpenEnabled
                                 )
                                 viewModel.adminUpdateAdConfiguration(updated)
                                 android.widget.Toast.makeText(context, "Ad IDs applied & updated!", android.widget.Toast.LENGTH_SHORT).show()
@@ -5806,13 +6295,25 @@ fun AdminAdmobManagement(
                             admobInterstitialIdText = ""
                             admobRewardedIdText = ""
                             admobNativeIdText = ""
+                            isBannerEnabled = true
+                            isInterstitialEnabled = true
+                            isRewardedEnabled = true
+                            isRewardedInterstitialEnabled = true
+                            isNativeEnabled = true
+                            isAppOpenEnabled = true
                             if (admob != null) {
                                 val updated = admob.copy(
                                     appId = "",
                                     bannerPlacementId = "",
                                     interstitialPlacementId = "",
                                     rewardedPlacementId = "",
-                                    nativePlacementId = ""
+                                    nativePlacementId = "",
+                                    isBannerEnabled = true,
+                                    isInterstitialEnabled = true,
+                                    isRewardedEnabled = true,
+                                    isRewardedInterstitialEnabled = true,
+                                    isNativeEnabled = true,
+                                    isAppOpenEnabled = true
                                 )
                                 viewModel.adminUpdateAdConfiguration(updated)
                                 android.widget.Toast.makeText(context, "All Ads Removed / Reset!", android.widget.Toast.LENGTH_SHORT).show()
@@ -6190,6 +6691,487 @@ fun ClockDivider() {
         color = GoldenAmber,
         modifier = Modifier.padding(bottom = 12.dp)
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChromeSimulatorDialog(
+    show: Boolean,
+    onDismiss: () -> Unit,
+    connectionState: String,
+    selectedServer: VpnServer?,
+    currentPublicIp: String,
+    getT: (String, String) -> String
+) {
+    if (!show) return
+
+    var currentUrl by remember { mutableStateOf("https://www.google.com/search?q=what+is+my+ip") }
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    
+    // Simulate web page loading when URL changes or refresh is clicked
+    LaunchedEffect(currentUrl) {
+        isLoading = true
+        delay(1000)
+        isLoading = false
+    }
+
+    Dialog(
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        onDismissRequest = onDismiss
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.85f)
+                .clip(RoundedCornerShape(16.dp))
+                .border(BorderStroke(1.dp, Color.DarkGray), RoundedCornerShape(16.dp)),
+            color = Color(0xFF1E2022) // Chrome premium dark mode color
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // 1. Chrome Window Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF2B2D30))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Back button
+                    IconButton(
+                        onClick = {
+                            if (currentUrl != "https://www.google.com/search?q=what+is+my+ip") {
+                                currentUrl = "https://www.google.com/search?q=what+is+my+ip"
+                            }
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // Address bar
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp)
+                            .background(Color(0xFF1E2022), RoundedCornerShape(18.dp))
+                            .border(BorderStroke(1.dp, Color(0xFF3C3F41)), RoundedCornerShape(18.dp))
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Secure connection",
+                            tint = if (connectionState == "CONNECTED") RadiantEmerald else Color.LightGray,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        
+                        // Clean domain representation
+                        Text(
+                            text = if (currentUrl.contains("google.com")) "google.com" else "ipinfo.io",
+                            fontSize = 12.sp,
+                            color = Color.White,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        // Refresh button
+                        IconButton(
+                            onClick = {
+                                isLoading = true
+                                scope.launch {
+                                    delay(900)
+                                    isLoading = false
+                                }
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh",
+                                tint = Color.LightGray,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // Tab Count box
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .border(BorderStroke(1.5.dp, Color.White), RoundedCornerShape(4.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "1",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Close / Dismiss Browser Button
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close Browser",
+                            tint = CrimsonRose,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                // Chrome Page Loading Progress Bar
+                if (isLoading) {
+                    LinearProgressIndicator(
+                        color = ElectricBlue,
+                        trackColor = Color.Transparent,
+                        modifier = Modifier.fillMaxWidth().height(2.dp)
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(2.dp).background(Color(0xFF3C3F41)))
+                }
+
+                // Quick Navigation Shortcuts
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF2B2D30).copy(alpha = 0.5f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = currentUrl.contains("google.com"),
+                        onClick = {
+                            currentUrl = "https://www.google.com/search?q=what+is+my+ip"
+                        },
+                        label = { Text("Google Search IP", fontSize = 10.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = ElectricBlue.copy(alpha = 0.2f),
+                            selectedLabelColor = ElectricBlue
+                        )
+                    )
+                    FilterChip(
+                        selected = currentUrl.contains("ipinfo.io"),
+                        onClick = {
+                            currentUrl = "https://ipinfo.io"
+                        },
+                        label = { Text("ipinfo.io", fontSize = 10.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = ElectricBlue.copy(alpha = 0.2f),
+                            selectedLabelColor = ElectricBlue
+                        )
+                    )
+                }
+
+                // 2. Web View Area
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF121212)) // Browser background canvas
+                ) {
+                    if (isLoading) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator(color = ElectricBlue, modifier = Modifier.size(36.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Loading secure webpage...", color = Color.Gray, fontSize = 12.sp)
+                        }
+                    } else {
+                        if (currentUrl.contains("google.com")) {
+                            // Render Simulated Google search result page
+                            GoogleSearchPage(
+                                connectionState = connectionState,
+                                selectedServer = selectedServer,
+                                currentPublicIp = currentPublicIp,
+                                getT = getT
+                            )
+                        } else {
+                            // Render Simulated ipinfo.io page
+                            IpInfoPage(
+                                connectionState = connectionState,
+                                selectedServer = selectedServer,
+                                currentPublicIp = currentPublicIp,
+                                getT = getT
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GoogleSearchPage(
+    connectionState: String,
+    selectedServer: VpnServer?,
+    currentPublicIp: String,
+    getT: (String, String) -> String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        // Google Small colored header
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+        ) {
+            Text("G", color = Color(0xFF4285F4), fontWeight = FontWeight.Bold, fontSize = 24.sp)
+            Text("o", color = Color(0xFFEA4335), fontWeight = FontWeight.Bold, fontSize = 24.sp)
+            Text("o", color = Color(0xFFFBBC05), fontWeight = FontWeight.Bold, fontSize = 24.sp)
+            Text("g", color = Color(0xFF4285F4), fontWeight = FontWeight.Bold, fontSize = 24.sp)
+            Text("l", color = Color(0xFF34A853), fontWeight = FontWeight.Bold, fontSize = 24.sp)
+            Text("e", color = Color(0xFFEA4335), fontWeight = FontWeight.Bold, fontSize = 24.sp)
+        }
+
+        // Search Bar container
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF303134), RoundedCornerShape(24.dp))
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.LightGray, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("what is my ip", color = Color.White, fontSize = 13.sp)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Direct answer box (Google IP card)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF303134)),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, Color(0xFF3C4043))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = getT("Your public IP address", "আপনার পাবলিক আইপি এড্রেস"),
+                    color = Color.LightGray,
+                    fontSize = 11.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                val ipToDisplay = if (connectionState == "CONNECTED") {
+                    selectedServer?.ipAddress ?: "104.244.42.1"
+                } else {
+                    currentPublicIp
+                }
+
+                Text(
+                    text = ipToDisplay,
+                    color = if (connectionState == "CONNECTED") RadiantEmerald else ElectricBlue,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = Color(0xFF3C4043))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Location info
+                val country = if (connectionState == "CONNECTED") selectedServer?.countryName ?: "United States" else "Bangladesh"
+                val city = if (connectionState == "CONNECTED") selectedServer?.city ?: "New York" else "Dhaka"
+                val isp = if (connectionState == "CONNECTED") "Alif Secure Tunnel (${selectedServer?.protocol ?: "WireGuard"})" else "Local ISP Provider"
+
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    val emoji = when (country) {
+                        "United States" -> "🇺🇸"
+                        "Singapore" -> "🇸🇬"
+                        "Bangladesh" -> "🇧🇩"
+                        "Japan" -> "🇯🇵"
+                        "United Kingdom" -> "🇬🇧"
+                        "Germany" -> "🇩🇪"
+                        "South Korea (Seoul)" -> "🇰🇷"
+                        "India" -> "🇮🇳"
+                        else -> "🌐"
+                    }
+                    Text(emoji, fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(text = "$city, $country", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(text = "ISP: $isp", color = Color.Gray, fontSize = 11.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Security indicator inside Browser
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            if (connectionState == "CONNECTED") RadiantEmerald.copy(alpha = 0.1f) else CrimsonRose.copy(alpha = 0.1f),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (connectionState == "CONNECTED") Icons.Default.Security else Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = if (connectionState == "CONNECTED") RadiantEmerald else CrimsonRose,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (connectionState == "CONNECTED")
+                                getT("VPN Protected Connection Secured", "ভিপিএন দ্বারা সংযোগ সম্পূর্ণ সুরক্ষিত")
+                            else
+                                getT("Connection Unsecured - Real IP exposed", "অসুরক্ষিত সংযোগ - আসল আইপি উন্মুক্ত রয়েছে"),
+                            color = if (connectionState == "CONNECTED") RadiantEmerald else CrimsonRose,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Fake organic search result for fun/realism
+        Text("About 1,840,000,000 results (0.42 seconds)", color = Color.Gray, fontSize = 10.sp)
+        Spacer(modifier = Modifier.height(12.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        ) {
+            Column {
+                Text("https://whatismyipaddress.com", color = Color.LightGray, fontSize = 11.sp)
+                Text("What Is My IP Address? - See Your Public IP Address", color = Color(0xFF8AB4F8), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                Text("IP address lookup, location, speed test, and IP checking tools. Find out your IPv4 or IPv6 details easily...", color = Color.Gray, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun IpInfoPage(
+    connectionState: String,
+    selectedServer: VpnServer?,
+    currentPublicIp: String,
+    getT: (String, String) -> String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        // ipinfo.io simulated header
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .background(Color(0xFF0D6EFD), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Explore, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("ipinfo.io", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("SIMULATED", color = Color.Yellow, fontSize = 9.sp, modifier = Modifier.background(Color.Black, RoundedCornerShape(2.dp)).padding(horizontal = 4.dp))
+        }
+
+        val ipToDisplay = if (connectionState == "CONNECTED") {
+            selectedServer?.ipAddress ?: "104.244.42.1"
+        } else {
+            currentPublicIp
+        }
+
+        val country = if (connectionState == "CONNECTED") selectedServer?.countryName ?: "United States" else "Bangladesh"
+        val city = if (connectionState == "CONNECTED") selectedServer?.city ?: "New York" else "Dhaka"
+        val countryCode = if (connectionState == "CONNECTED") selectedServer?.countryCode ?: "US" else "BD"
+
+        Text(text = "The IP Address Details", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Raw JSON or beautiful table
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, Color(0xFF2D2D2D))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "{\n" +
+                            "  \"ip\": \"$ipToDisplay\",\n" +
+                            "  \"city\": \"$city\",\n" +
+                            "  \"region\": \"$city Region\",\n" +
+                            "  \"country\": \"$countryCode\",\n" +
+                            "  \"loc\": \"${if (countryCode == "US") "40.7128,-74.0060" else "23.8103,90.4125"}\",\n" +
+                            "  \"org\": \"AS${if (countryCode == "US") "15169 Google LLC" else "58715 Local Telecom"}\",\n" +
+                            "  \"postal\": \"${if (countryCode == "US") "10001" else "1212"}\",\n" +
+                            "  \"timezone\": \"${if (countryCode == "US") "America/New_York" else "Asia/Dhaka"}\",\n" +
+                            "  \"vpn\": ${if (connectionState == "CONNECTED") "true" else "false"}\n" +
+                            "}",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    color = Color(0xFF4AF626) // hacker green JSON format
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Geographic Location Visualizer",
+            color = Color.LightGray,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // Mock Map container
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .background(Color(0xFF2B2B2B), RoundedCornerShape(8.dp))
+                .border(BorderStroke(1.dp, Color(0xFF3B3B3B)), RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = if (connectionState == "CONNECTED") RadiantEmerald else CrimsonRose,
+                    modifier = Modifier.size(32.dp)
+                )
+                Text(text = "Target Lock: $city, $country", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Coordinates: ${if (countryCode == "US") "40.7128° N, 74.0060° W" else "23.8103° N, 90.4125° E"}", color = Color.Gray, fontSize = 9.sp)
+            }
+        }
+    }
 }
 
 
