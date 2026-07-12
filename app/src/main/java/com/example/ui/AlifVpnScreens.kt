@@ -4540,11 +4540,32 @@ fun AdminServerManagement(servers: List<VpnServer>, appConf: AppConfig?, viewMod
             try {
                 val inputStream = context.contentResolver.openInputStream(uri)
                 val bytes = inputStream?.readBytes()
+                var fileName = "imported_config.ovpn"
+                try {
+                    val cursor = context.contentResolver.query(uri, null, null, null, null)
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val nameIdx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (nameIdx != -1) {
+                                fileName = it.getString(nameIdx)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
                 if (bytes != null) {
                     viewModel.adminImportServersFromZip(
                         zipBytes = bytes,
+                        fileName = fileName,
                         onSuccess = { count ->
-                            android.widget.Toast.makeText(context, "Successfully imported $count servers from ZIP!", android.widget.Toast.LENGTH_LONG).show()
+                            val msg = if (fileName.endsWith(".zip", ignoreCase = true)) {
+                                "Successfully imported $count servers from ZIP!"
+                            } else {
+                                "Successfully imported 1 server from $fileName!"
+                            }
+                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                         },
                         onError = { errorMsg ->
                             android.widget.Toast.makeText(context, "Import failed: $errorMsg", android.widget.Toast.LENGTH_LONG).show()
@@ -4648,19 +4669,19 @@ fun AdminServerManagement(servers: List<VpnServer>, appConf: AppConfig?, viewMod
         }
 
         item {
-            Text("Bulk Import Server ZIP", fontWeight = FontWeight.Bold, color = ElectricBlue)
+            Text("Import Servers (ZIP or Single Config)", fontWeight = FontWeight.Bold, color = ElectricBlue)
         }
 
         item {
             Card(colors = CardDefaults.cardColors(containerColor = DeepCosmicSurface)) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Upload a server ZIP file containing OpenVPN (.ovpn) or WireGuard (.conf) configs. The app will auto-parse server name, protocol, and configuration IP from each file!",
+                        text = "Upload a single configuration file (.ovpn / .conf) OR a ZIP archive. The app will auto-detect, parse the remote server IP address, and run automatic high-precision geo-lookup to find the correct country & city!",
                         color = Color.LightGray,
                         fontSize = 11.sp
                     )
                     Text(
-                        text = "Naming rule: Code_City_Type.ovpn (e.g., US_Chicago_free.ovpn, SG_Changi_premium.conf)",
+                        text = "Supports files downloaded directly from VPNGate!",
                         color = RadiantEmerald,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold
@@ -4673,12 +4694,12 @@ fun AdminServerManagement(servers: List<VpnServer>, appConf: AppConfig?, viewMod
                     ) {
                         Button(
                             onClick = { fileLauncher.launch("*/*") },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1.5f),
                             colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
                         ) {
                             Icon(Icons.Default.CloudUpload, contentDescription = "", modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Choose ZIP", fontSize = 11.sp)
+                            Text("Choose ZIP or Config File", fontSize = 11.sp)
                         }
                         
                         Button(
@@ -4691,7 +4712,7 @@ fun AdminServerManagement(servers: List<VpnServer>, appConf: AppConfig?, viewMod
                         ) {
                             Icon(Icons.Default.AutoMode, contentDescription = "", modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Simulate ZIP", fontSize = 11.sp)
+                            Text("Simulate", fontSize = 11.sp)
                         }
                     }
                 }
@@ -6783,7 +6804,7 @@ fun ChromeSimulatorDialog(
                         
                         // Clean domain representation
                         Text(
-                            text = if (currentUrl.contains("google.com")) "google.com" else "ipinfo.io",
+                            text = if (currentUrl.contains("google.com")) "google.com" else if (currentUrl.contains("ipinfo.io")) "ipinfo.io" else "ip8.com",
                             fontSize = 12.sp,
                             color = Color.White,
                             modifier = Modifier.weight(1f)
@@ -6883,6 +6904,17 @@ fun ChromeSimulatorDialog(
                             selectedLabelColor = ElectricBlue
                         )
                     )
+                    FilterChip(
+                        selected = currentUrl.contains("ip8.com"),
+                        onClick = {
+                            currentUrl = "https://ip8.com"
+                        },
+                        label = { Text("ip8.com (My IP)", fontSize = 10.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = ElectricBlue.copy(alpha = 0.2f),
+                            selectedLabelColor = ElectricBlue
+                        )
+                    )
                 }
 
                 // 2. Web View Area
@@ -6910,9 +6942,17 @@ fun ChromeSimulatorDialog(
                                 currentPublicIp = currentPublicIp,
                                 getT = getT
                             )
-                        } else {
+                        } else if (currentUrl.contains("ipinfo.io")) {
                             // Render Simulated ipinfo.io page
                             IpInfoPage(
+                                connectionState = connectionState,
+                                selectedServer = selectedServer,
+                                currentPublicIp = currentPublicIp,
+                                getT = getT
+                            )
+                        } else {
+                            // Render Simulated ip8.com page
+                            Ip8Page(
                                 connectionState = connectionState,
                                 selectedServer = selectedServer,
                                 currentPublicIp = currentPublicIp,
@@ -7176,6 +7216,240 @@ fun IpInfoPage(
                 )
                 Text(text = "Target Lock: $city, $country", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Text(text = "Coordinates: ${if (countryCode == "US") "40.7128° N, 74.0060° W" else "23.8103° N, 90.4125° E"}", color = Color.Gray, fontSize = 9.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun Ip8Page(
+    connectionState: String,
+    selectedServer: VpnServer?,
+    currentPublicIp: String,
+    getT: (String, String) -> String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(12.dp)
+    ) {
+        // ip8.com header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "ip",
+                color = Color(0xFF1A73E8),
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp
+            )
+            Text(
+                text = "8",
+                color = RadiantEmerald,
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp
+            )
+            Text(
+                text = ".com",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 18.sp
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "SIMULATED SECURE PROXY CHECK",
+                color = Color.Yellow,
+                fontSize = 8.sp,
+                modifier = Modifier
+                    .background(Color.Black, RoundedCornerShape(2.dp))
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+            )
+        }
+
+        // Blue banner "ip8 in your browser..."
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F52BA)),
+            shape = RoundedCornerShape(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "ip8 in your browser — IP, DNS & WebRTC tools",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Free Chrome extension. No account needed.",
+                        color = Color.LightGray,
+                        fontSize = 9.sp
+                    )
+                }
+                Text(
+                    text = "Get the extension",
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(Color(0xFFE25822), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        val ipToDisplay = if (connectionState == "CONNECTED") {
+            selectedServer?.ipAddress ?: "128.199.112.5"
+        } else {
+            currentPublicIp
+        }
+
+        val country = if (connectionState == "CONNECTED") selectedServer?.countryName ?: "Singapore" else "Bangladesh"
+        val countryCode = if (connectionState == "CONNECTED") selectedServer?.countryCode ?: "SG" else "BD"
+        val city = if (connectionState == "CONNECTED") selectedServer?.city ?: "Jurong" else "Dhaka"
+        val ispName = if (connectionState == "CONNECTED") "DigitalOcean" else "Robi"
+        val dnsServer = if (connectionState == "CONNECTED") "8.8.8.8 (${selectedServer?.countryName ?: "Singapore"})" else "103.25.250.54 (Robi - Bangladesh)"
+
+        // My IP Address is CARD
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2022)),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, Color(0xFF3C3F41))
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1.2f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("My IP Address is ", color = Color.LightGray, fontSize = 12.sp)
+                        Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(12.dp))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (countryCode == "SG") "🇸🇬 " else if (countryCode == "BD") "🇧🇩 " else "🌍 ",
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "$city / $country",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = ipToDisplay,
+                        color = if (connectionState == "CONNECTED") RadiantEmerald else ElectricBlue,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("DNS: $dnsServer", color = Color.Gray, fontSize = 9.sp)
+                    Text("WebRTC: OK (Secure)", color = Color.Gray, fontSize = 9.sp)
+                }
+
+                // Map placeholder
+                Column(
+                    modifier = Modifier
+                        .weight(0.8f)
+                        .background(Color(0xFF2B2B2B), RoundedCornerShape(8.dp))
+                        .border(BorderStroke(1.dp, Color(0xFF3C3F41)), RoundedCornerShape(8.dp))
+                        .padding(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = if (connectionState == "CONNECTED") RadiantEmerald else CrimsonRose,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "Map view: $city",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (countryCode == "SG") "1.3521° N\n103.8198° E" else "23.7278° N\n90.4135° E",
+                        color = Color.LightGray,
+                        fontSize = 8.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Privacy index
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = if (connectionState == "CONNECTED") Color(0xFF0F5132) else Color(0xFF664D03)),
+            shape = RoundedCornerShape(4.dp)
+        ) {
+            Text(
+                text = if (connectionState == "CONNECTED") "Privacy Index 100% - VPN Tunnel active" else "Privacy Index 20% - Real IP exposed",
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // IP Address Details Table
+        Text("IP Address Details", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(6.dp))
+
+        val tableDetails = listOf(
+            "ISP" to ispName,
+            "Hostname" to "-",
+            "Postal Code" to if (countryCode == "SG") "018956" else "1000",
+            "Region" to if (countryCode == "SG") "Central Singapore" else "Dhaka Division",
+            "Location" to if (countryCode == "SG") "1.3521 / 103.8198" else "23.7278 / 90.4135",
+            "ASN" to if (countryCode == "SG") "AS14061" else "24432",
+            "Connection Type" to if (connectionState == "CONNECTED") "vpn_secure" else "cellular"
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1C)),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, Color(0xFF2A2A2C))
+        ) {
+            Column {
+                tableDetails.forEachIndexed { idx, pair ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(if (idx % 2 == 0) Color(0xFF1E1E21) else Color.Transparent)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(pair.first, color = Color.LightGray, fontSize = 11.sp)
+                        Text(pair.second, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    if (idx < tableDetails.size - 1) {
+                        HorizontalDivider(color = Color(0xFF2D2D30))
+                    }
+                }
             }
         }
     }

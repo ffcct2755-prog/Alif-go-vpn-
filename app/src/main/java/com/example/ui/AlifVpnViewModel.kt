@@ -1376,20 +1376,108 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private data class GeoIpDetails(
+        val countryName: String,
+        val countryCode: String,
+        val city: String
+    )
+
+    private fun fetchGeoIpDetails(ip: String): GeoIpDetails? {
+        try {
+            val url = java.net.URL("https://ipapi.co/$ip/json/")
+            val connection = url.openConnection() as java.net.HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
+            if (connection.responseCode == 200) {
+                val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+                val obj = org.json.JSONObject(responseText)
+                val country = obj.optString("country_name", "").ifBlank { obj.optString("country", "Unknown") }
+                val code = obj.optString("country_code", "").ifBlank { "US" }
+                val city = obj.optString("city", "").ifBlank { "Default Location" }
+                return GeoIpDetails(country, code, city)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return null
+    }
+
     fun adminImportServersFromZip(
         zipBytes: ByteArray,
+        fileName: String = "imported_server.ovpn",
         onSuccess: (count: Int) -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val parsedServers = parseVpnServersFromZip(zipBytes)
+                val isZip = zipBytes.size >= 4 && 
+                            zipBytes[0] == 0x50.toByte() && 
+                            zipBytes[1] == 0x4B.toByte() && 
+                            zipBytes[2] == 0x03.toByte() && 
+                            zipBytes[3] == 0x04.toByte()
+
+                val parsedServers = mutableListOf<VpnServer>()
+
+                if (isZip) {
+                    parsedServers.addAll(parseVpnServersFromZip(zipBytes))
+                } else {
+                    // It's a single .ovpn or .conf file!
+                    val content = String(zipBytes, Charsets.UTF_8)
+                    val protocol = if (fileName.endsWith(".conf", ignoreCase = true)) "WireGuard" else "OpenVPN"
+                    var ipAddress = "127.0.0.1"
+
+                    if (protocol == "OpenVPN") {
+                        val remoteMatch = Regex("""(?i)remote\s+([0-9a-zA-Z\.\-]+)""").find(content)
+                        if (remoteMatch != null) {
+                            ipAddress = remoteMatch.groupValues[1]
+                        }
+                    } else {
+                        val endpointMatch = Regex("""(?i)Endpoint\s*=\s*([0-9a-zA-Z\.\-]+)""").find(content)
+                        if (endpointMatch != null) {
+                            ipAddress = endpointMatch.groupValues[1]
+                        }
+                    }
+
+                    if (ipAddress == "127.0.0.1") {
+                        val anyRemoteMatch = Regex("""(?i)remote\s+([^\s]+)""").find(content)
+                        if (anyRemoteMatch != null) {
+                            ipAddress = anyRemoteMatch.groupValues[1]
+                        }
+                    }
+
+                    // Remove port and clean
+                    ipAddress = ipAddress.substringBefore(" ").substringBefore(":")
+
+                    if (ipAddress != "127.0.0.1" && ipAddress.isNotBlank()) {
+                        // Fetch actual GeoIP geolocation
+                        val geo = fetchGeoIpDetails(ipAddress)
+                        val countryName = geo?.countryName ?: "Singapore"
+                        val countryCode = geo?.countryCode ?: "SG"
+                        val city = geo?.city ?: "Jurong"
+
+                        parsedServers.add(
+                            VpnServer(
+                                countryName = countryName,
+                                countryCode = countryCode,
+                                city = city,
+                                ipAddress = ipAddress,
+                                type = "Free",
+                                latency = kotlin.random.Random.nextInt(15, 90),
+                                loadPercent = kotlin.random.Random.nextInt(10, 50),
+                                protocol = protocol
+                            )
+                        )
+                    }
+                }
+
                 if (parsedServers.isEmpty()) {
                     withContext(Dispatchers.Main) {
-                        onError("No valid .ovpn or .conf configuration files found in ZIP!")
+                        onError("No valid .ovpn or .conf configuration files or IP addresses found!")
                     }
                     return@launch
                 }
+
                 for (srv in parsedServers) {
                     serverDao.insertServer(srv)
                 }
@@ -1398,7 +1486,7 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    onError(e.localizedMessage ?: "Unknown error while processing ZIP")
+                    onError(e.localizedMessage ?: "Unknown error while processing config")
                 }
             }
         }
