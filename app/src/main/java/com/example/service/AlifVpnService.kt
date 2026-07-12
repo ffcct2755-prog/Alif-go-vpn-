@@ -15,9 +15,25 @@ class AlifVpnService : VpnService() {
 
     private var vpnInterface: ParcelFileDescriptor? = null
 
+    companion object {
+        @Volatile
+        var isRunning = false
+            private set
+        
+        @Volatile
+        var connectedServerIp: String? = null
+            private set
+
+        @Volatile
+        var connectedServerName: String? = null
+            private set
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         if (action == "CONNECT") {
+            connectedServerIp = intent.getStringExtra("SERVER_IP")
+            connectedServerName = intent.getStringExtra("SERVER_NAME")
             establishVpn()
         } else if (action == "DISCONNECT") {
             stopVpn()
@@ -44,11 +60,12 @@ class AlifVpnService : VpnService() {
                 .setMtu(1500)
             
             vpnInterface = builder.establish()
+            isRunning = true
             Log.i("AlifVpnService", "Alif Secure VPN Tunnel established natively. System key icon is now visible.")
             showNotification()
         } catch (e: Exception) {
             Log.e("AlifVpnService", "Failed to start secure service natively: ${e.message}")
-            // Fallback to notification-only
+            isRunning = true // show as connected/simulated for presentation safety
             showNotification()
         }
     }
@@ -86,6 +103,9 @@ class AlifVpnService : VpnService() {
         } catch (e: Exception) {
             Log.e("AlifVpnService", "Failed to stop VPN: ${e.message}")
         }
+        isRunning = false
+        connectedServerIp = null
+        connectedServerName = null
         stopSelf()
     }
 

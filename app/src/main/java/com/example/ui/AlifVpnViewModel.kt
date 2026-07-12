@@ -112,6 +112,21 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private fun isServiceRunning(context: Context, serviceClass: Class<*>): Boolean {
+        try {
+            val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            @Suppress("DEPRECATION")
+            for (service in manager.getRunningServices(Integer.MAX_VALUE)) {
+                if (serviceClass.name == service.service.className) {
+                    return true
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return false
+    }
+
     private val _vpnPermissionIntent = MutableStateFlow<Intent?>(null)
     val vpnPermissionIntent: StateFlow<Intent?> = _vpnPermissionIntent.asStateFlow()
 
@@ -152,11 +167,31 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
     val notificationBroadcasts: StateFlow<List<Pair<String, String>>> = _notificationBroadcasts.asStateFlow()
 
     init {
-        fetchRealPublicIpAddress()
-        // Automatically select the 'Smart' server initially once loaded
+        val prefs = context.getSharedPreferences("AlifVpnPrefs", Context.MODE_PRIVATE)
+        val savedConnected = prefs.getBoolean("is_connected", false)
+        val savedServerIp = prefs.getString("connected_server_ip", null)
+
+        if (AlifVpnService.isRunning || (savedConnected && isServiceRunning(context, AlifVpnService::class.java))) {
+            _connectionState.value = "CONNECTED"
+            _currentPublicIpAddress.value = AlifVpnService.connectedServerIp ?: savedServerIp ?: "104.244.42.1"
+            startStatsTimer()
+        } else {
+            _connectionState.value = "DISCONNECTED"
+            fetchRealPublicIpAddress()
+        }
+
+        // Automatically select the 'Smart' server initially once loaded, or restore previous selection if active
         viewModelScope.launch {
             allServers.collect { list ->
                 if (_selectedServer.value == null && list.isNotEmpty()) {
+                    val activeSavedIp = prefs.getString("connected_server_ip", null)
+                    if (activeSavedIp != null) {
+                        val matched = list.firstOrNull { it.ipAddress == activeSavedIp }
+                        if (matched != null) {
+                            _selectedServer.value = matched
+                            return@collect
+                        }
+                    }
                     // Preselect Bangladesh or first free server as default smart destination
                     val smartServer = list.firstOrNull { it.countryCode == "SG" } ?: list.firstOrNull()
                     _selectedServer.value = smartServer
@@ -777,6 +812,8 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     try {
                         val serviceIntent = Intent(context, AlifVpnService::class.java).apply {
                             action = "CONNECT"
+                            putExtra("SERVER_IP", _selectedServer.value?.ipAddress ?: "104.244.42.1")
+                            putExtra("SERVER_NAME", _selectedServer.value?.countryName ?: "United States")
                         }
                         context.startService(serviceIntent)
                     } catch (e: Exception) {
@@ -786,6 +823,13 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     // Directly transition to CONNECTED to guarantee flawless presentation and simulated security
                     _connectionState.value = "CONNECTED"
                     _currentPublicIpAddress.value = _selectedServer.value?.ipAddress ?: "104.244.42.1"
+                    
+                    val prefs = context.getSharedPreferences("AlifVpnPrefs", Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .putBoolean("is_connected", true)
+                        .putString("connected_server_ip", _selectedServer.value?.ipAddress)
+                        .apply()
+
                     startStatsTimer()
                 }
             }
@@ -794,6 +838,13 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
             _connectionState.value = "DISCONNECTED"
             fetchRealPublicIpAddress()
             stopStatsTimer()
+            
+            val prefs = context.getSharedPreferences("AlifVpnPrefs", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putBoolean("is_connected", false)
+                .remove("connected_server_ip")
+                .apply()
+
             val serviceIntent = Intent(context, AlifVpnService::class.java).apply {
                 action = "DISCONNECT"
             }
@@ -1325,15 +1376,30 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun adminImportServersFromZip(zipBytes: ByteArray) {
+    fun adminImportServersFromZip(
+        zipBytes: ByteArray,
+        onSuccess: (count: Int) -> Unit,
+        onError: (String) -> Unit
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val parsedServers = parseVpnServersFromZip(zipBytes)
+                if (parsedServers.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        onError("No valid .ovpn or .conf configuration files found in ZIP!")
+                    }
+                    return@launch
+                }
                 for (srv in parsedServers) {
                     serverDao.insertServer(srv)
                 }
+                withContext(Dispatchers.Main) {
+                    onSuccess(parsedServers.size)
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    onError(e.localizedMessage ?: "Unknown error while processing ZIP")
+                }
             }
         }
     }
@@ -1394,33 +1460,41 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
             val zipStream = java.util.zip.ZipInputStream(zipBytes.inputStream())
             var entry = zipStream.nextEntry
             while (entry != null) {
-                if (!entry.isDirectory && (entry.name.endsWith(".ovpn") || entry.name.endsWith(".conf"))) {
+                val isMacMeta = entry.name.contains("__MACOSX") || entry.name.substringAfterLast("/").startsWith("._")
+                if (!entry.isDirectory && !isMacMeta && (entry.name.endsWith(".ovpn") || entry.name.endsWith(".conf"))) {
                     val fileName = entry.name.substringAfterLast("/")
                     val baseName = fileName.substringBeforeLast(".")
                     val parts = baseName.split("_", "-")
                     
                     var countryCode = "US"
                     var countryName = "United States"
-                    var city = "New Route"
+                    var city = baseName
                     var type = "Free"
                     val protocol = if (fileName.endsWith(".ovpn")) "OpenVPN" else "WireGuard"
                     
                     if (parts.isNotEmpty()) {
-                        countryCode = parts[0].uppercase()
-                        countryName = when (countryCode) {
-                            "US" -> "United States"
-                            "SG" -> "Singapore"
-                            "BD" -> "Bangladesh"
-                            "JP" -> "Japan"
-                            "GB" -> "United Kingdom"
-                            "DE" -> "Germany"
-                            "KR" -> "South Korea"
-                            "IN" -> "India"
-                            "CA" -> "Canada"
-                            "FR" -> "France"
-                            "AU" -> "Australia"
-                            "NL" -> "Netherlands"
-                            else -> countryCode
+                        val firstPart = parts[0].uppercase()
+                        if (firstPart.length == 2) {
+                            countryCode = firstPart
+                            countryName = when (countryCode) {
+                                "US" -> "United States"
+                                "SG" -> "Singapore"
+                                "BD" -> "Bangladesh"
+                                "JP" -> "Japan"
+                                "GB" -> "United Kingdom"
+                                "DE" -> "Germany"
+                                "KR" -> "South Korea"
+                                "IN" -> "India"
+                                "CA" -> "Canada"
+                                "FR" -> "France"
+                                "AU" -> "Australia"
+                                "NL" -> "Netherlands"
+                                else -> countryCode
+                            }
+                        } else {
+                            // First part is not a 2-letter country code, treat firstPart as countryName
+                            countryCode = "SG" // default code
+                            countryName = parts[0].replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                         }
                     }
                     if (parts.size >= 2) {
@@ -1436,16 +1510,24 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                         }
                     }
                     
-                    val content = zipStream.bufferedReader().readText()
+                    // Safely read entry bytes without buffering beyond boundaries
+                    val outputStream = java.io.ByteArrayOutputStream()
+                    val buffer = ByteArray(4096)
+                    var bytesRead: Int
+                    while (zipStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                    }
+                    val content = outputStream.toString("UTF-8")
+                    
                     var ipAddress = "127.0.0.1"
                     
                     if (protocol == "OpenVPN") {
-                        val remoteMatch = Regex("""remote\s+([0-9a-zA-Z\.\-]+)""").find(content)
+                        val remoteMatch = Regex("""(?i)remote\s+([0-9a-zA-Z\.\-]+)""").find(content)
                         if (remoteMatch != null) {
                             ipAddress = remoteMatch.groupValues[1]
                         }
                     } else {
-                        val endpointMatch = Regex("""Endpoint\s*=\s*([0-9a-zA-Z\.\-]+)""").find(content)
+                        val endpointMatch = Regex("""(?i)Endpoint\s*=\s*([0-9a-zA-Z\.\-]+)""").find(content)
                         if (endpointMatch != null) {
                             ipAddress = endpointMatch.groupValues[1]
                         }

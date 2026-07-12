@@ -4541,10 +4541,17 @@ fun AdminServerManagement(servers: List<VpnServer>, appConf: AppConfig?, viewMod
                 val inputStream = context.contentResolver.openInputStream(uri)
                 val bytes = inputStream?.readBytes()
                 if (bytes != null) {
-                    viewModel.adminImportServersFromZip(bytes)
-                    android.widget.Toast.makeText(context, "Processing ZIP. Servers added automatically!", android.widget.Toast.LENGTH_LONG).show()
+                    viewModel.adminImportServersFromZip(
+                        zipBytes = bytes,
+                        onSuccess = { count ->
+                            android.widget.Toast.makeText(context, "Successfully imported $count servers from ZIP!", android.widget.Toast.LENGTH_LONG).show()
+                        },
+                        onError = { errorMsg ->
+                            android.widget.Toast.makeText(context, "Import failed: $errorMsg", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    )
                 } else {
-                    android.widget.Toast.makeText(context, "Failed to read file", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, "Failed to read file bytes", android.widget.Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 android.widget.Toast.makeText(context, "Error: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
@@ -4665,7 +4672,7 @@ fun AdminServerManagement(servers: List<VpnServer>, appConf: AppConfig?, viewMod
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Button(
-                            onClick = { fileLauncher.launch("application/zip") },
+                            onClick = { fileLauncher.launch("*/*") },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
                         ) {
