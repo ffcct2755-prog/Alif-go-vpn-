@@ -77,6 +77,8 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
     // Global settings toggled by App bar
     val isDarkTheme = true
     var langEnglish by remember { mutableStateOf(true) }
+    // Translations Dict
+    val getT = { en: String, bn: String -> if (langEnglish) en else bn }
     var isAdminMode by remember { mutableStateOf(false) }
 
     // Navigation and Alerts
@@ -95,6 +97,26 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
     val deviceId = remember {
         android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "UNKNOWN_DEVICE"
     }
+
+    val vpnPermissionIntent by viewModel.vpnPermissionIntent.collectAsState()
+    val vpnLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            // Permission granted, trigger connection!
+            viewModel.toggleConnection(deviceId = deviceId)
+        } else {
+            android.widget.Toast.makeText(context, getT("VPN permission denied", "ভিপিএন সংযোগের অনুমতি দেওয়া হয়নি"), android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    LaunchedEffect(vpnPermissionIntent) {
+        vpnPermissionIntent?.let { intent ->
+            vpnLauncher.launch(intent)
+            viewModel.clearVpnPermissionIntent()
+        }
+    }
+
     val authErrorMsg by viewModel.authError.collectAsState()
 
     // Interstitial and Rewarded Ad status
@@ -110,9 +132,6 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
     var signUpName by remember { mutableStateOf("") }
     var signUpInviteCode by remember { mutableStateOf("") }
     var isSignUpTab by remember { mutableStateOf(false) }
-
-    // Translations Dict
-    val getT = { en: String, bn: String -> if (langEnglish) en else bn }
 
     // Theme Color Mapping
     val customColorScheme = if (isDarkTheme) {
@@ -184,7 +203,59 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
     }
 
     MaterialTheme(colorScheme = customColorScheme) {
-        Scaffold(
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0F111A)),
+            contentAlignment = Alignment.Center
+        ) {
+            // Simulated side buttons for physical smartphone appearance
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight(0.95f)
+                    .aspectRatio(0.485f)
+                    .widthIn(max = 420.dp)
+                    .padding(horizontal = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // Volume keys on the left side
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = (-8).dp)
+                        .padding(bottom = 60.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(modifier = Modifier.size(width = 3.dp, height = 40.dp).background(Color(0xFF475569), RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp)))
+                    Box(modifier = Modifier.size(width = 3.dp, height = 40.dp).background(Color(0xFF475569), RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp)))
+                }
+                
+                // Power key on the right side
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .offset(x = 8.dp)
+                        .padding(bottom = 120.dp)
+                        .size(width = 3.dp, height = 50.dp)
+                        .background(Color(0xFF475569), RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                )
+
+                // Main Smartphone Body
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF1E293B), RoundedCornerShape(40.dp))
+                        .border(BorderStroke(4.dp, Brush.linearGradient(listOf(Color(0xFF475569), Color(0xFF1E293B), Color(0xFF64748B)))), RoundedCornerShape(40.dp))
+                        .padding(6.dp)
+                ) {
+                    // Inner Screen space with clipped rounded corners
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(34.dp))
+                            .background(MaterialTheme.colorScheme.background)
+                    ) {
+                        Scaffold(
             topBar = {
                 TopAppBar(
                     title = {
@@ -413,6 +484,49 @@ fun AlifVpnAppScreen(viewModel: AlifVpnViewModel) {
                 }
             }
         }
+
+            // Simulated Dynamic Island/Punch hole camera at the top of the mobile screen
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 8.dp)
+                    .size(width = 110.dp, height = 22.dp)
+                    .background(Color.Black, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Security light status dot (emerald if connected, crimson if disconnected)
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(if (connectionState == "CONNECTED") RadiantEmerald else CrimsonRose, CircleShape)
+                    )
+                    // Sleek camera lens ring
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(Color(0xFF111827), CircleShape)
+                            .border(1.dp, Color(0xFF374151), CircleShape)
+                    )
+                }
+            }
+
+            // Simulated iOS/Android dynamic home bar at the bottom
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 6.dp)
+                    .size(width = 130.dp, height = 4.dp)
+                    .background(Color.LightGray.copy(alpha = 0.5f), CircleShape)
+            )
+        } // Close inner screen Box
+    } // Close main smartphone body Box
+} // Close aspect ratio wrapper Box
+} // Close outer centering Box
 
         // --- ALL SYSTEM DIALOG OVERLAYS ---
 
@@ -1315,6 +1429,87 @@ fun ConnectDashboardTab(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // IP Protection Status Card
+        val currentIp by viewModel.currentPublicIpAddress.collectAsState()
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .padding(vertical = 4.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (connectionState == "CONNECTED") 
+                    RadiantEmerald.copy(alpha = 0.08f) 
+                else 
+                    MaterialTheme.colorScheme.surface
+            ),
+            border = BorderStroke(
+                1.dp, 
+                if (connectionState == "CONNECTED") RadiantEmerald.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(
+                            if (connectionState == "CONNECTED") RadiantEmerald.copy(alpha = 0.2f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (connectionState == "CONNECTED") Icons.Default.Security else Icons.Default.LockOpen,
+                        contentDescription = "Status",
+                        tint = if (connectionState == "CONNECTED") RadiantEmerald else CrimsonRose,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (connectionState == "CONNECTED") 
+                            getT("IP Protected & Secured", "আপনার আইপি সুরক্ষিত") 
+                        else 
+                            getT("Unprotected & Exposed", "আপনার আইপি অসুরক্ষিত"),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = if (connectionState == "CONNECTED") RadiantEmerald else CrimsonRose
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = getT("Current IP: $currentIp", "বর্তমান আইপি: $currentIp"),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Text(
+                    text = if (connectionState == "CONNECTED") 
+                        getT("SECURED", "সুরক্ষিত") 
+                    else 
+                        getT("EXPOSED", "উন্মুক্ত"),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (connectionState == "CONNECTED") RadiantEmerald else CrimsonRose,
+                    modifier = Modifier
+                        .background(
+                            if (connectionState == "CONNECTED") RadiantEmerald.copy(alpha = 0.15f) else CrimsonRose.copy(alpha = 0.15f),
+                            RoundedCornerShape(4.dp)
+                        )
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         // Selected Server Indicator Widget
         Card(
             modifier = Modifier
@@ -1430,7 +1625,7 @@ fun ConnectDashboardTab(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(getT("Downloading", "ডাউনলোড"), fontSize = 11.sp, color = Color.Gray)
                             }
-                            Text("$downloadSpeed Mbps", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Text("$downloadSpeed KB/s", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                             Text(
                                 text = "Total: ${String.format("%.2f", totalDl / (1024.0 * 1024.0))} MB",
                                 fontSize = 11.sp,
@@ -1443,7 +1638,7 @@ fun ConnectDashboardTab(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(getT("Uploading", "আপলোড"), fontSize = 11.sp, color = Color.Gray)
                             }
-                            Text("$uploadSpeed Mbps", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Text("$uploadSpeed KB/s", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                             Text(
                                 text = "Total: ${String.format("%.2f", totalUl / (1024.0 * 1024.0))} MB",
                                 fontSize = 11.sp,
