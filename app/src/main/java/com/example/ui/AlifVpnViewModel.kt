@@ -889,10 +889,29 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private fun isProxyAlive(host: String, port: Int): Boolean {
+        var socket: java.net.Socket? = null
+        return try {
+            socket = java.net.Socket()
+            // Set 1.0 second timeout for the socket handshake check
+            socket.connect(java.net.InetSocketAddress(host, port), 1000)
+            true
+        } catch (e: Exception) {
+            false
+        } finally {
+            try {
+                socket?.close()
+            } catch (ex: Exception) {
+                // Ignore
+            }
+        }
+    }
+
     private fun fetchWorkingProxy(countryCode: String): Pair<String, Int>? {
         val cleanCountry = countryCode.trim().uppercase()
         val urlsToTry = listOf(
             "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=$cleanCountry&ssl=all&anonymity=all",
+            "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
             "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=all&ssl=all&anonymity=all"
         )
         for (urlStr in urlsToTry) {
@@ -905,13 +924,23 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                 if (connection.responseCode == 200) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val lines = response.split("\n", "\r").map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
+                    
+                    var testCount = 0
                     for (line in lines) {
                         val parts = line.split(":")
                         if (parts.size == 2) {
                             val host = parts[0].trim()
                             val port = parts[1].trim().toIntOrNull()
                             if (host.isNotEmpty() && port != null) {
-                                return Pair(host, port)
+                                testCount++
+                                if (testCount <= 15) { // Test at most 15 proxies to avoid long waiting times
+                                    if (isProxyAlive(host, port)) {
+                                        android.util.Log.i("AlifVpnViewModel", "Verified LIVE working proxy: $host:$port")
+                                        return Pair(host, port)
+                                    }
+                                } else {
+                                    break
+                                }
                             }
                         }
                     }

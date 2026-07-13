@@ -55,7 +55,7 @@ class AlifVpnService : VpnService() {
             val builder = Builder()
                 .setSession("Alif Go VPN")
                 .addAddress("10.8.0.2", 32)
-                .addRoute("0.0.0.0", 0) // Intercept ALL device IPv4 traffic
+                .addRoute("10.8.0.0", 24) // Dummy local route to avoid black-holing raw device packets
                 .setMtu(1500)
             
             // Apply HTTP proxy configuration so that browser (Chrome) traffic routes through it
