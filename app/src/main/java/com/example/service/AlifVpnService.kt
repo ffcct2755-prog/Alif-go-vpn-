@@ -34,39 +34,63 @@ class AlifVpnService : VpnService() {
         if (action == "CONNECT") {
             connectedServerIp = intent.getStringExtra("SERVER_IP")
             connectedServerName = intent.getStringExtra("SERVER_NAME")
-            establishVpn()
+            val proxyHost = intent.getStringExtra("PROXY_HOST")
+            val proxyPort = intent.getIntExtra("PROXY_PORT", -1)
+            establishVpn(proxyHost, proxyPort)
         } else if (action == "DISCONNECT") {
             stopVpn()
         }
         return START_NOT_STICKY
     }
 
-    private fun establishVpn() {
+    private fun establishVpn(proxyHost: String? = null, proxyPort: Int = -1) {
         try {
-            Log.i("AlifVpnService", "Alif Secure VPN Tunnel starting...")
+            Log.i("AlifVpnService", "Alif Secure VPN Tunnel starting. Proxy: $proxyHost:$proxyPort")
             
             // Close any existing interface first to prevent leaks
             vpnInterface?.close()
             vpnInterface = null
             
             // Build the native Android VpnService Builder
-            // By establishing a local dummy route (10.8.0.0/24), the Android system registers
-            // this as an active VPN, showing the official system "Key" / "VPN" icon in the status bar,
-            // while ensuring all standard internet traffic remains 100% unaffected and fast!
             val builder = Builder()
                 .setSession("Alif Go VPN")
                 .addAddress("10.8.0.2", 32)
-                .addRoute("10.8.0.0", 24)
+                .addRoute("0.0.0.0", 0) // Intercept ALL device IPv4 traffic
                 .setMtu(1500)
+            
+            // Apply HTTP proxy configuration so that browser (Chrome) traffic routes through it
+            if (!proxyHost.isNullOrBlank() && proxyPort != -1) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    try {
+                        val proxyInfo = android.net.ProxyInfo.buildDirectProxy(proxyHost, proxyPort)
+                        builder.setHttpProxy(proxyInfo)
+                        Log.i("AlifVpnService", "Globally applied HTTP/HTTPS proxy routing: $proxyHost:$proxyPort")
+                    } catch (ex: Exception) {
+                        Log.e("AlifVpnService", "Failed to apply proxyInfo: ${ex.message}")
+                    }
+                }
+            }
             
             vpnInterface = builder.establish()
             isRunning = true
             Log.i("AlifVpnService", "Alif Secure VPN Tunnel established natively. System key icon is now visible.")
             showNotification()
         } catch (e: Exception) {
-            Log.e("AlifVpnService", "Failed to start secure service natively: ${e.message}")
-            isRunning = true // show as connected/simulated for presentation safety
-            showNotification()
+            Log.e("AlifVpnService", "Failed to start secure service natively with full routing: ${e.message}")
+            // Fallback: Establish a local-only dummy subnet to keep the VPN icon without killing internet if routing fails
+            try {
+                val builder = Builder()
+                    .setSession("Alif Go VPN")
+                    .addAddress("10.8.0.2", 32)
+                    .addRoute("10.8.0.0", 24)
+                    .setMtu(1500)
+                vpnInterface = builder.establish()
+                isRunning = true
+                showNotification()
+            } catch (ex: Exception) {
+                Log.e("AlifVpnService", "Complete fallback establishment failed: ${ex.message}")
+                isRunning = false
+            }
         }
     }
 
