@@ -899,19 +899,24 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun isProxyFullyWorking(host: String, port: Int): String? {
-        val testUrls = listOf("https://api.ipify.org?format=text", "https://ifconfig.me/ip")
+        val testUrls = listOf(
+            "http://api.ipify.org?format=text",
+            "http://ifconfig.me/ip",
+            "https://api.ipify.org?format=text"
+        )
         for (testUrl in testUrls) {
             try {
                 val proxy = java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress(host, port))
                 val url = java.net.URL(testUrl)
                 val connection = url.openConnection(proxy) as java.net.HttpURLConnection
-                connection.connectTimeout = 1500
-                connection.readTimeout = 1500
+                connection.connectTimeout = 3000
+                connection.readTimeout = 3000
                 connection.requestMethod = "GET"
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                 if (connection.responseCode == 200) {
                     val ip = connection.inputStream.bufferedReader().use { it.readText() }.trim()
                     if (ip.isNotEmpty() && !ip.contains("<") && ip.split(".").size == 4) {
+                        android.util.Log.i("AlifVpnViewModel", "Proxy verified working: $host:$port -> IP: $ip")
                         return ip
                     }
                 }
@@ -925,10 +930,11 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
     private fun fetchWorkingProxy(countryCode: String): Triple<String, Int, String>? {
         val cleanCountry = countryCode.trim().uppercase()
         val urlsToTry = listOf(
-            "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=$cleanCountry&ssl=all&anonymity=all",
+            "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=$cleanCountry&ssl=yes&anonymity=all",
+            "https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt",
             "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
             "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
-            "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=all&ssl=all&anonymity=all"
+            "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=yes&anonymity=all"
         )
         
         val proxyCandidates = mutableListOf<Pair<String, Int>>()
@@ -938,8 +944,8 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                 val url = java.net.URL(urlStr)
                 val connection = url.openConnection() as java.net.HttpURLConnection
                 connection.requestMethod = "GET"
-                connection.connectTimeout = 3000
-                connection.readTimeout = 3000
+                connection.connectTimeout = 4000
+                connection.readTimeout = 4000
                 if (connection.responseCode == 200) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val lines = response.split("\n", "\r").map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
@@ -957,7 +963,7 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            if (proxyCandidates.size >= 100) {
+            if (proxyCandidates.size >= 300) {
                 break
             }
         }
@@ -970,9 +976,9 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
         proxyCandidates.shuffle()
         
         // Let's test them in parallel using coroutines!
-        val candidatesToTest = proxyCandidates.take(45)
+        val candidatesToTest = proxyCandidates.take(80)
         
-        val resultChannel = kotlinx.coroutines.channels.Channel<Triple<String, Int, String>>(1)
+        val resultChannel = kotlinx.coroutines.channels.Channel<Triple<String, Int, String>>(5)
         val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO)
         
         val jobs = candidatesToTest.map { (host, port) ->
@@ -984,10 +990,10 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         
-        // Wait for the first working proxy or a timeout of 3.5 seconds
+        // Wait for the first working proxy or a timeout of 7.5 seconds
         var workingProxy: Triple<String, Int, String>? = null
         kotlinx.coroutines.runBlocking {
-            kotlinx.coroutines.withTimeoutOrNull(3500) {
+            kotlinx.coroutines.withTimeoutOrNull(7500) {
                 workingProxy = resultChannel.receive()
             }
         }
