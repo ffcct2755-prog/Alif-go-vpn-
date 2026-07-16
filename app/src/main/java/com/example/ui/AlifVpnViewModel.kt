@@ -91,13 +91,17 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
 
     fun fetchRealPublicIpAddress() {
         if (_connectionState.value == "CONNECTED") {
-            _currentPublicIpAddress.value = _selectedServer.value?.ipAddress ?: "104.244.42.1"
+            val prefs = context.getSharedPreferences("AlifVpnPrefs", Context.MODE_PRIVATE)
+            val storedIp = prefs.getString("connected_server_ip", null)
+            _currentPublicIpAddress.value = storedIp ?: _selectedServer.value?.ipAddress ?: "104.244.42.1"
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 if (_connectionState.value == "CONNECTED") {
-                    _currentPublicIpAddress.value = _selectedServer.value?.ipAddress ?: "104.244.42.1"
+                    val prefs = context.getSharedPreferences("AlifVpnPrefs", Context.MODE_PRIVATE)
+                    val storedIp = prefs.getString("connected_server_ip", null)
+                    _currentPublicIpAddress.value = storedIp ?: _selectedServer.value?.ipAddress ?: "104.244.42.1"
                     return@launch
                 }
                 val url = java.net.URL("https://api.ipify.org?format=text")
@@ -109,7 +113,9 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     val ip = connection.inputStream.bufferedReader().use { it.readText() }.trim()
                     if (ip.isNotEmpty()) {
                         if (_connectionState.value == "CONNECTED") {
-                            _currentPublicIpAddress.value = _selectedServer.value?.ipAddress ?: "104.244.42.1"
+                            val prefs = context.getSharedPreferences("AlifVpnPrefs", Context.MODE_PRIVATE)
+                            val storedIp = prefs.getString("connected_server_ip", null)
+                            _currentPublicIpAddress.value = storedIp ?: _selectedServer.value?.ipAddress ?: "104.244.42.1"
                         } else {
                             _currentPublicIpAddress.value = ip
                         }
@@ -121,7 +127,9 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
             }
             // Fallback to simulated Bangladeshi ISP IP
             if (_connectionState.value == "CONNECTED") {
-                _currentPublicIpAddress.value = _selectedServer.value?.ipAddress ?: "104.244.42.1"
+                val prefs = context.getSharedPreferences("AlifVpnPrefs", Context.MODE_PRIVATE)
+                val storedIp = prefs.getString("connected_server_ip", null)
+                _currentPublicIpAddress.value = storedIp ?: _selectedServer.value?.ipAddress ?: "104.244.42.1"
             } else {
                 _currentPublicIpAddress.value = "103.112.113.15"
             }
@@ -805,9 +813,10 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                 
                 val selectedSrv = _selectedServer.value
                 val countryCode = selectedSrv?.countryCode ?: "US"
-                val proxy = fetchWorkingProxy(countryCode)
-                val proxyHost = proxy?.first
-                val proxyPort = proxy?.second ?: -1
+                val proxyTriple = fetchWorkingProxy(countryCode)
+                val proxyHost = proxyTriple?.first
+                val proxyPort = proxyTriple?.second ?: -1
+                val externalIp = proxyTriple?.third
 
                 withContext(Dispatchers.Main) {
                     delay(1200) // connection Handshake simulation
@@ -834,7 +843,7 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
                     try {
                         val serviceIntent = Intent(context, AlifVpnService::class.java).apply {
                             action = "CONNECT"
-                            putExtra("SERVER_IP", proxyHost ?: _selectedServer.value?.ipAddress ?: "104.244.42.1")
+                            putExtra("SERVER_IP", externalIp ?: _selectedServer.value?.ipAddress ?: "104.244.42.1")
                             putExtra("SERVER_NAME", _selectedServer.value?.countryName ?: "United States")
                             putExtra("PROXY_HOST", proxyHost)
                             putExtra("PROXY_PORT", proxyPort)
@@ -846,12 +855,12 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
 
                     // Directly transition to CONNECTED to guarantee flawless presentation and simulated security
                     _connectionState.value = "CONNECTED"
-                    _currentPublicIpAddress.value = proxyHost ?: _selectedServer.value?.ipAddress ?: "104.244.42.1"
+                    _currentPublicIpAddress.value = externalIp ?: _selectedServer.value?.ipAddress ?: "104.244.42.1"
                     
                     val prefs = context.getSharedPreferences("AlifVpnPrefs", Context.MODE_PRIVATE)
                     prefs.edit()
                         .putBoolean("is_connected", true)
-                        .putString("connected_server_ip", proxyHost ?: _selectedServer.value?.ipAddress)
+                        .putString("connected_server_ip", externalIp ?: _selectedServer.value?.ipAddress)
                         .apply()
 
                     startStatsTimer()
@@ -889,67 +898,104 @@ class AlifVpnViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun isProxyAlive(host: String, port: Int): Boolean {
-        var socket: java.net.Socket? = null
-        return try {
-            socket = java.net.Socket()
-            // Set 1.0 second timeout for the socket handshake check
-            socket.connect(java.net.InetSocketAddress(host, port), 1000)
-            true
-        } catch (e: Exception) {
-            false
-        } finally {
+    private fun isProxyFullyWorking(host: String, port: Int): String? {
+        val testUrls = listOf("https://api.ipify.org?format=text", "https://ifconfig.me/ip")
+        for (testUrl in testUrls) {
             try {
-                socket?.close()
-            } catch (ex: Exception) {
-                // Ignore
+                val proxy = java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress(host, port))
+                val url = java.net.URL(testUrl)
+                val connection = url.openConnection(proxy) as java.net.HttpURLConnection
+                connection.connectTimeout = 1500
+                connection.readTimeout = 1500
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                if (connection.responseCode == 200) {
+                    val ip = connection.inputStream.bufferedReader().use { it.readText() }.trim()
+                    if (ip.isNotEmpty() && !ip.contains("<") && ip.split(".").size == 4) {
+                        return ip
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore and try next
             }
         }
+        return null
     }
 
-    private fun fetchWorkingProxy(countryCode: String): Pair<String, Int>? {
+    private fun fetchWorkingProxy(countryCode: String): Triple<String, Int, String>? {
         val cleanCountry = countryCode.trim().uppercase()
         val urlsToTry = listOf(
             "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=$cleanCountry&ssl=all&anonymity=all",
+            "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
             "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
             "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=all&ssl=all&anonymity=all"
         )
+        
+        val proxyCandidates = mutableListOf<Pair<String, Int>>()
+        
         for (urlStr in urlsToTry) {
             try {
                 val url = java.net.URL(urlStr)
                 val connection = url.openConnection() as java.net.HttpURLConnection
                 connection.requestMethod = "GET"
-                connection.connectTimeout = 4000
-                connection.readTimeout = 4000
+                connection.connectTimeout = 3000
+                connection.readTimeout = 3000
                 if (connection.responseCode == 200) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val lines = response.split("\n", "\r").map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
-                    
-                    var testCount = 0
                     for (line in lines) {
                         val parts = line.split(":")
                         if (parts.size == 2) {
                             val host = parts[0].trim()
                             val port = parts[1].trim().toIntOrNull()
                             if (host.isNotEmpty() && port != null) {
-                                testCount++
-                                if (testCount <= 15) { // Test at most 15 proxies to avoid long waiting times
-                                    if (isProxyAlive(host, port)) {
-                                        android.util.Log.i("AlifVpnViewModel", "Verified LIVE working proxy: $host:$port")
-                                        return Pair(host, port)
-                                    }
-                                } else {
-                                    break
-                                }
+                                proxyCandidates.add(Pair(host, port))
                             }
                         }
                     }
                 }
-            } catch (e: java.lang.Exception) {
+            } catch (e: Exception) {
                 e.printStackTrace()
             }
+            if (proxyCandidates.size >= 100) {
+                break
+            }
         }
-        return null
+        
+        if (proxyCandidates.isEmpty()) {
+            return null
+        }
+        
+        // Shuffle candidates so we don't always test the same ones and hit limits
+        proxyCandidates.shuffle()
+        
+        // Let's test them in parallel using coroutines!
+        val candidatesToTest = proxyCandidates.take(45)
+        
+        val resultChannel = kotlinx.coroutines.channels.Channel<Triple<String, Int, String>>(1)
+        val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO)
+        
+        val jobs = candidatesToTest.map { (host, port) ->
+            scope.launch {
+                val ip = isProxyFullyWorking(host, port)
+                if (ip != null) {
+                    resultChannel.trySend(Triple(host, port, ip))
+                }
+            }
+        }
+        
+        // Wait for the first working proxy or a timeout of 3.5 seconds
+        var workingProxy: Triple<String, Int, String>? = null
+        kotlinx.coroutines.runBlocking {
+            kotlinx.coroutines.withTimeoutOrNull(3500) {
+                workingProxy = resultChannel.receive()
+            }
+        }
+        
+        // Cancel all testing jobs to release resources
+        jobs.forEach { it.cancel() }
+        
+        return workingProxy
     }
 
     private fun startStatsTimer() {
